@@ -1,0 +1,76 @@
+{
+  "tag": "l3",
+  "parameters": ["x"],
+  "body": {
+    "tag": "letrec",
+    "bindings": [
+      [
+        "fact",
+        {
+          "tag": "abstract",
+          "parameters": [
+            "n"
+          ],
+          "body": {
+            "tag": "branch",
+            "operator": "==",
+            "left": {
+              "tag": "reference",
+              "name": "n"
+            },
+            "right": {
+              "tag": "immediate",
+              "value": 0
+            },
+            "consequent": {
+              "tag": "immediate",
+              "value": 1
+            },
+            "otherwise": {
+              "tag": "primitive",
+              "operator": "*",
+              "left": {
+                "tag": "reference",
+                "name": "n"
+              },
+              "right": {
+                "tag": "apply",
+                "target": {
+                  "tag": "reference",
+                  "name": "fact"
+                },
+                "arguments": [
+                  {
+                    "tag": "primitive",
+                    "operator": "-",
+                    "left": {
+                      "tag": "reference",
+                      "name": "n"
+                    },
+                    "right": {
+                      "tag": "immediate",
+                      "value": 1
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        }
+      ]
+    ],
+    "body": {
+      "tag": "apply",
+      "target": {
+        "tag": "reference",
+        "name": "fact"
+      },
+      "arguments": [
+        {
+          "tag": "reference",
+          "name": "x"
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,70 @@
+{
+  "tag": "l3",
+  "parameters": ["m", "n"],
+  "body": {
+    "tag": "let",
+    "bindings": [
+      [
+        "make_adder",
+        {
+          "tag": "abstract",
+          "parameters": [
+            "x"
+          ],
+          "body": {
+            "tag": "abstract",
+            "parameters": [
+              "y"
+            ],
+            "body": {
+              "tag": "primitive",
+              "operator": "+",
+              "left": {
+                "tag": "reference",
+                "name": "x"
+              },
+              "right": {
+                "tag": "reference",
+                "name": "y"
+              }
+            }
+          }
+        }
+      ]
+    ],
+    "body": {
+      "tag": "let",
+      "bindings": [
+        [
+          "adder",
+          {
+            "tag": "apply",
+            "target": {
+              "tag": "reference",
+              "name": "make_adder"
+            },
+            "arguments": [
+              {
+                "tag": "reference",
+                "name": "m"
+              }
+            ]
+          }
+        ]
+      ],
+      "body": {
+        "tag": "apply",
+        "target": {
+          "tag": "reference",
+          "name": "adder"
+        },
+        "arguments": [
+          {
+            "tag": "reference",
+            "name": "n"
+          }
+        ]
+      }
+    }
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "tag": "l3",
+  "parameters": [
+    "m",
+    "n"
+  ],
+  "body": {
+    "tag": "primitive",
+    "operator": "+",
+    "left": {
+      "tag": "reference",
+      "name": "m"
+    },
+    "right": {
+      "tag": "reference",
+      "name": "n"
+    }
+  }
+}

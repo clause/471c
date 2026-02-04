@@ -4,6 +4,7 @@ from typing import Annotated, Literal
 from pydantic import BaseModel, Field
 
 type Identifier = Annotated[str, Field(min_length=1)]
+
 type Nat = Annotated[int, Field(ge=0)]
 
 

@@ -1,0 +1,171 @@
+{
+  "tag": "l3",
+  "parameters": [
+    "n"
+  ],
+  "body": {
+    "tag": "let",
+    "bindings": [
+      [
+        "i",
+        {
+          "tag": "allocate",
+          "count": 1
+        }
+      ],
+      [
+        "acc",
+        {
+          "tag": "allocate",
+          "count": 1
+        }
+      ]
+    ],
+    "body": {
+      "tag": "begin",
+      "effects": [
+        {
+          "tag": "store",
+          "base": {
+            "tag": "reference",
+            "name": "i"
+          },
+          "index": 0,
+          "value": {
+            "tag": "immediate",
+            "value": 0
+          }
+        },
+        {
+          "tag": "store",
+          "base": {
+            "tag": "reference",
+            "name": "acc"
+          },
+          "index": 0,
+          "value": {
+            "tag": "immediate",
+            "value": 0
+          }
+        }
+      ],
+      "value": {
+        "tag": "letrec",
+        "bindings": [
+          [
+            "loop",
+            {
+              "tag": "abstract",
+              "parameters": [],
+              "body": {
+                "tag": "branch",
+                "operator": "<",
+                "left": {
+                  "tag": "load",
+                  "base": {
+                    "tag": "reference",
+                    "name": "i"
+                  },
+                  "index": 0
+                },
+                "right": {
+                  "tag": "primitive",
+                  "operator": "+",
+                  "left": {
+                    "tag": "reference",
+                    "name": "n"
+                  },
+                  "right": {
+                    "tag": "immediate",
+                    "value": 1
+                  }
+                },
+                "consequent": {
+                  "tag": "begin",
+                  "effects": [
+                    {
+                      "tag": "store",
+                      "base": {
+                        "tag": "reference",
+                        "name": "acc"
+                      },
+                      "index": 0,
+                      "value": {
+                        "tag": "primitive",
+                        "operator": "+",
+                        "left": {
+                          "tag": "load",
+                          "base": {
+                            "tag": "reference",
+                            "name": "acc"
+                          },
+                          "index": 0
+                        },
+                        "right": {
+                          "tag": "load",
+                          "base": {
+                            "tag": "reference",
+                            "name": "i"
+                          },
+                          "index": 0
+                        }
+                      }
+                    },
+                    {
+                      "tag": "store",
+                      "base": {
+                        "tag": "reference",
+                        "name": "i"
+                      },
+                      "index": 0,
+                      "value": {
+                        "tag": "primitive",
+                        "operator": "+",
+                        "left": {
+                          "tag": "load",
+                          "base": {
+                            "tag": "reference",
+                            "name": "i"
+                          },
+                          "index": 0
+                        },
+                        "right": {
+                          "tag": "immediate",
+                          "value": 1
+                        }
+                      }
+                    }
+                  ],
+                  "value": {
+                    "tag": "apply",
+                    "target": {
+                      "tag": "reference",
+                      "name": "loop"
+                    },
+                    "arguments": []
+                  }
+                },
+                "otherwise": {
+                  "tag": "load",
+                  "base": {
+                    "tag": "reference",
+                    "name": "acc"
+                  },
+                  "index": 0
+                }
+              }
+            }
+          ]
+        ],
+        "body": {
+          "tag": "apply",
+          "target": {
+            "tag": "reference",
+            "name": "loop"
+          },
+          "arguments": []
+        }
+      }
+    }
+  }
+}

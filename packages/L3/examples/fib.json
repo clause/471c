@@ -1,0 +1,95 @@
+{
+  "tag": "l3",
+  "parameters": [
+    "n"
+  ],
+  "body": {
+    "tag": "letrec",
+    "bindings": [
+      [
+        "fib",
+        {
+          "tag": "abstract",
+          "parameters": [
+            "n"
+          ],
+          "body": {
+            "tag": "branch",
+            "operator": "<",
+            "left": {
+              "tag": "reference",
+              "name": "n"
+            },
+            "right": {
+              "tag": "immediate",
+              "value": 2
+            },
+            "consequent": {
+              "tag": "reference",
+              "name": "n"
+            },
+            "otherwise": {
+              "tag": "primitive",
+              "operator": "+",
+              "left": {
+                "tag": "apply",
+                "target": {
+                  "tag": "reference",
+                  "name": "fib"
+                },
+                "arguments": [
+                  {
+                    "tag": "primitive",
+                    "operator": "-",
+                    "left": {
+                      "tag": "reference",
+                      "name": "n"
+                    },
+                    "right": {
+                      "tag": "immediate",
+                      "value": 1
+                    }
+                  }
+                ]
+              },
+              "right": {
+                "tag": "apply",
+                "target": {
+                  "tag": "reference",
+                  "name": "fib"
+                },
+                "arguments": [
+                  {
+                    "tag": "primitive",
+                    "operator": "-",
+                    "left": {
+                      "tag": "reference",
+                      "name": "n"
+                    },
+                    "right": {
+                      "tag": "immediate",
+                      "value": 2
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        }
+      ]
+    ],
+    "body": {
+      "tag": "apply",
+      "target": {
+        "tag": "reference",
+        "name": "fib"
+      },
+      "arguments": [
+        {
+          "tag": "reference",
+          "name": "n"
+        }
+      ]
+    }
+  }
+}
