@@ -10,16 +10,15 @@ We use UV for dependency management, running tests, and pre-commit hooks.
 
 ## Fork and Clone the Repository
 
-1. Go to the project page in GitLab:  
-   `https://gitlab.eecis.udel.edu/clause/471c`
+1. Fork the repository: `https://github.com/clause/471c/fork`
+   
+2. Choose your personal namespace or group for the fork.
 
-2. Click the **Fork** button at the top-right of the page.
+3. Add `clause@udel.edu` and `wahid@udel.edu` as project members with the developer role.
 
-3. Choose your personal namespace or group for the fork. Make sure the fork has private visibility.
+4. Clone your fork locally either via command line or by using your preferred IDE.
 
-4. Add `clause@udel.edu` and `wahid@udel.edu` as project members with the developer role.
-
-5. Clone your fork locally either via command line or by using your preferred IDE.
+5. Link [CodeCov](https://about.codecov.io/) to your GitHub account (login to codecov using your github credentials).
 
 6. Update the badge URLs in README.md by replacing `clause` with `<NAMESPACE>` and `471c` with `<PROJECT>`
 
