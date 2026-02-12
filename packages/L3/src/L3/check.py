@@ -67,13 +67,13 @@ def check_term(
             recur(consequent)
             recur(otherwise)
 
-        case Allocate(count=count):
+        case Allocate():
             pass
 
-        case Load(base=base, index=index):
+        case Load(base=base):
             recur(base)
 
-        case Store(base=base, index=index, value=value):
+        case Store(base=base, value=value):
             recur(base)
             recur(value)
 
@@ -102,7 +102,7 @@ def decorate_context_for_lecrec(
                 new_context = {**new_context, **decorate_context_for_lecrec(t, context=context)}
             return {**new_context, **decorate_context_for_lecrec(body, context=context)}
 
-        case Reference(name=name):
+        case Reference():
             pass
 
         case Abstract(parameters=parameters, body=body):
@@ -137,13 +137,13 @@ def decorate_context_for_lecrec(
                 **decorate_context_for_lecrec(otherwise, context=context),
             }
 
-        case Allocate(count=count):
+        case Allocate():
             pass
 
-        case Load(base=base, index=index):
+        case Load(base=base):
             return {**context, **decorate_context_for_lecrec(base, context=context)}
 
-        case Store(base=base, index=index, value=value):
+        case Store(base=base, value=value):
             return {
                 **context,
                 **decorate_context_for_lecrec(base, context=context),
