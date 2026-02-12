@@ -1,0 +1,7 @@
+(l3 (m n)
+  (let ((make_adder
+         (\ (x)
+           (\ (y)
+             (+ x y)))))
+    (let ((adder (make_adder m)))
+      (adder n))))

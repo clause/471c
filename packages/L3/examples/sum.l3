@@ -1,0 +1,22 @@
+(l3 (n)
+  (let ((i   (allocate 1))            ; int i
+        (acc (allocate 1)))           ; int acc
+    (begin
+      (store i 0 0)                   ; i = 0
+      (store acc 0 0)                 ; acc = 0 
+      (letrec
+        ((loop
+          (\ ()
+            (if                       ; if i < n + 1
+              (< (load i 0) (+ n 1))
+              (begin                   
+                (store acc 0          ; acc += i
+                  (+ (load acc 0)
+                     (load i 0)))
+                (store i 0            ; i += 1
+                  (+ (load i 0) 
+                     1))
+                (loop))
+              (load acc 0)))))
+        (loop)))))
+
