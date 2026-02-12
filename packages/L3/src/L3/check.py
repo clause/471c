@@ -28,38 +28,69 @@ def check_term(
     recur = partial(check_term, context=context)  # noqa: F841
 
     match term:
-        case Let():
-            pass
+        case Let(bindings=bindings, body=body):
+            ctx: dict[Identifier, None] = dict(context)
+            for name, value in bindings:
+                check_term(value, ctx)
+                if name in ctx:
+                    raise ValueError(f"duplicate binding (shadowing not allowed): {name!r}")
+                ctx[name] = None
+            check_term(body, ctx)
 
-        case LetRec():
-            pass
+        case LetRec(bindings=bindings, body=body):
+            ctx: dict[Identifier, None] = dict(context)
+            for name, _value in bindings:
+                if name in ctx:
+                    raise ValueError(f"duplicate binding (shadowing not allowed): {name!r}")
+                ctx[name] = None
+            for _name, value in bindings:
+                check_term(value, ctx)
+            check_term(body, ctx)
 
-        case Reference():
-            pass
+        case Reference(name=name):
+            if name not in context:
+                raise ValueError(f"unbound identifier: {name!r}")
 
-        case Abstract():
-            pass
+        case Abstract(parameters=parameters, body=body):
+            # parameters introduce new bindings; disallow duplicates / shadowing
+            ctx: dict[Identifier, None] = dict(context)
+            for p in parameters:
+                if p in ctx:
+                    raise ValueError(f"duplicate binding (shadowing not allowed): {p!r}")
+                ctx[p] = None
+            check_term(body, ctx)
 
-        case Apply():
-            pass
+        case Apply(target=target, arguments=arguments):
+            recur(target)
+            for arg in arguments:
+                recur(arg)
 
         case Immediate():
-            pass
+            # integer literal is always ok
+            return
 
-        case Primitive():
-            pass
+        case Primitive(left=left, right=right):
+            recur(left)
+            recur(right)
 
-        case Branch():
-            pass
+        case Branch(left=left, right=right, consequent=consequent, otherwise=otherwise):
+            recur(left)
+            recur(right)
+            recur(consequent)
+            recur(otherwise)
 
         case Allocate():
-            pass
+            # count is Nat (validated by pydantic)
+            return
 
-        case Load():
-            pass
+        case Load(base=base):
+            recur(base)
 
-        case Store():
-            pass
+        case Store(base=base, value=value):
+            recur(base)
+            recur(value)
 
-        case Begin():  # pragma: no branch
-            pass
+        case Begin(effects=effects, value=value):  # pragma: no branch
+            for eff in effects:
+                recur(eff)
+            recur(value)
