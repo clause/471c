@@ -34,8 +34,10 @@ def check_term(
         case LetRec():
             pass
 
-        case Reference():
-            pass
+        case Reference(name=name):
+            match context.get(name):
+                case None:
+                    raise NameError(f"Undefined variable: {name}")
 
         case Abstract():
             pass
@@ -43,11 +45,12 @@ def check_term(
         case Apply():
             pass
 
-        case Immediate():
+        case Immediate(value=_value):
             pass
 
-        case Primitive():
-            pass
+        case Primitive(operator=_operator, left=left, right=right):
+            recur(left)
+            recur(right)
 
         case Branch():
             pass
