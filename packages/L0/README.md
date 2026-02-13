@@ -1,7 +1,5 @@
 Within syntax.py l0
 
-We have Nat back same as it was in l2 and l3 
-
 Program now has a tag of "l0" and a sequence of procedures. It now lacks a body using the sequence of procedures to act as a body
 
 Procedure is a class that has an identifiable name and parameters of identifiers. Its body is made up of statements making up for the lack of a body in Program. It's, in this way, a collection of the various functions in the program.

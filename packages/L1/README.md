@@ -1,7 +1,5 @@
 Within syntax.py l1
 
-We are now missing Nat as an option for indexing, in specific this will affect our memory allocation and accessing classes.
-
 Programs tag is now l1 and it's body is a Statement rather than a Term. Explained more in its effect below 
 
 Statement is similar to Term in its actual application however it has a differing Annotated list than L2. It gets rid of things that make variables less direct making the variables more explicit
