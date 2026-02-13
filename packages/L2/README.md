@@ -1,5 +1,7 @@
 Within syntax.py l2
 
+Identifier and Nat are the same as in L3
+
 Once again the program code as a whole is made in Program this time being labelled/named "l2"
 
 Term shares all the aforementioned terms of l3 except for letrec

@@ -1,4 +1,8 @@
-Within syntax.py
+Within syntax.py l3
+
+We have the type "Identifier" which is a non-empty string. It's being used in variable creation to prevent empty names
+
+type Nat is in a similar situation where it defines a non-negative integer and is used for memory allocation, being the place in memory
 
 The general class for the program is labeled with a tage of "l3" to identify that this is part of l3
 It contains the program sequence itself as the paremeters and the body is made of the many terms later defined. It is able to have variables defined within its origin
