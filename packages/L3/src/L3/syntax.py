@@ -11,8 +11,7 @@ type Nat = Annotated[int, Field(ge=0)]
 class Program(BaseModel, frozen=True):
     tag: Literal["l3"] = "l3"
     parameters: Sequence[Identifier]
-    body: Term
-
+    body: Term # body is the region in which names that we define are legal
 
 type Term = Annotated[
     Let | Reference | Abstract | Apply | Immediate | Primitive | Branch | Allocate | Load | Store | Begin | LetRec,
