@@ -1,7 +1,7 @@
 # Status
 
-[![.github/workflows/ci.yml](https://github.com/jtfulky/471c/actions/workflows/ci.yml/badge.svg)](https://github.com/jtfulky/471c/actions/workflows/ci.yml)
-[![Coverage](https://codecov.io/gh/jtfulky/471c/branch/main/graph/badge.svg)](https://codecov.io/gh/jtfulky/471c)
+[![.github/workflows/ci.yml](https://github.com/JTFulkerson/471c/actions/workflows/ci.yml/badge.svg)](https://github.com/JTFulkerson/471c/actions/workflows/ci.yml)
+[![Coverage](https://codecov.io/gh/JTFulkerson/471c/branch/main/graph/badge.svg)](https://codecov.io/gh/JTFulkerson/471c)
 
 # Contributing 
 
