@@ -23,22 +23,6 @@ from .syntax import (
 type Context = Mapping[Identifier, None]
 
 
-def check_program(
-    program: Program,
-) -> None:
-    # recur = partial(check_term, context=context)
-
-    match program:
-        case Program(parameters=parameters, body=body):  # no branch
-            counts = Counter(parameters)
-            duplicates = {name for name, count in counts.items() if count > 1}
-            if duplicates:
-                raise ValueError(f"duplicate parameters: {duplicates}")
-
-            local = dict.fromkeys(parameters, None)
-            check_term(body, context=local)
-
-
 def check_term(
     term: Term,
     context: Context,
