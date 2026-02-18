@@ -1,7 +1,6 @@
 from collections import Counter
 from collections.abc import Mapping
 from functools import partial
-from typing import Counter
 
 from .syntax import (
     Abstract,
@@ -35,7 +34,7 @@ def check_term(
             counts = Counter(name for name, _ in bindings)
             duplicates = {name: count for name, count in counts.items() if count > 1}
             if duplicates:
-                raise ValueError(f"Duplicate bindings: {duplicates}")
+                raise ValueError(f"Duplicate Bindings: {duplicates}")
 
             for _, value in bindings:
                 recur(value)
@@ -47,7 +46,7 @@ def check_term(
             counts = Counter(name for name, _ in bindings)
             duplicates = {name: count for name, count in counts.items() if count > 1}
             if duplicates:
-                raise ValueError(f"duplicate binders: {duplicates}")
+                raise ValueError(f"Duplicate Binders: {duplicates}")
 
             local = dict.fromkeys([name for name, _ in bindings])
 
@@ -58,13 +57,13 @@ def check_term(
 
         case Reference(name=name):
             if name not in context:
-                raise ValueError(f"unknown variable: {name}")
+                raise ValueError(f"Unknown Variable: {name}")
 
         case Abstract(parameters=parameters, body=body):
             counts = Counter(parameters)
             duplicates = {name for name, count in counts.items() if count > 1}
             if duplicates:
-                raise ValueError(f"duplicate parameters: {duplicates}")
+                raise ValueError(f"Duplicate Parameters: {duplicates}")
 
             local = dict.fromkeys(parameters, None)
             recur(body, context={**context, **local})
@@ -111,7 +110,7 @@ def check_program(
             counts = Counter(parameters)
             duplicates = {name for name, count in counts.items() if count > 1}
             if duplicates:
-                raise ValueError(f"duplicate parameters: {duplicates}")
+                raise ValueError(f"Duplicate Parameters: {duplicates}")
 
             local = dict.fromkeys(parameters, None)
             check_term(body, context=local)
