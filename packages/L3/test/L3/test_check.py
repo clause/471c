@@ -13,6 +13,7 @@ from L3.syntax import (
     Primitive,
     Program,
     Reference,
+    Store,
 )
 
 # Helpers so I don't need to rewrite the same code for every test
@@ -127,15 +128,15 @@ def test_check_apply_valid():  # makes an apply with target x and arguments x an
 
 
 def test_check_apply_unknown_target():  # makes an apply with target x and arguments x and x and context has y so should fail because x is not defined in the context and is not a valid target or argument
-    apply = Apply(target=x, arguments=[x, x])
+    apply = Apply(target=x, arguments=[])
     with pytest.raises(ValueError):
         check_term(apply, context("y"))
 
 
-def test_check_apply_unknown_argument():  # makes an apply with target x and arguments x and x and context has x and y so should fail because even though x is a valid target and argument and is defined in the context there is an argument that is not defined in the context which is y
-    apply = Apply(target=x, arguments=[x, x])
+def test_check_apply_unknown_argument():  # makes an apply with target Imm and arguments x, should fail because the argument x is not defined in the context and is not a valid argument even though the target is valid
+    apply = Apply(target=Imm, arguments=[x])
     with pytest.raises(ValueError):
-        check_term(apply, context("x", "y"))
+        check_term(apply, context())
 
 
 def test_check_apply_no_target():  # makes an apply with target x and no arguments and context has x so should pass because x is a valid target and there are no arguments to check
@@ -289,3 +290,9 @@ def test_check_primitive_right_invalid():  # makes a primitive with operator + a
     term = Primitive(operator="+", left=x, right=Reference(name="y"))
     with pytest.raises(ValueError):
         check_term(term, context("x"))
+
+
+# store
+def test_check_store_valid():  # makes a store with base x and index 0 and value Imm and context has x so should pass because the base is a valid term and is defined in the context and the index is a valid index and the value is a valid term
+    term = Store(base=x, index=0, value=Imm)
+    check_term(term, context("x"))
