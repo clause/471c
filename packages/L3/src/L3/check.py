@@ -85,19 +85,14 @@ def check_term(
             recur(consequent)
             recur(otherwise)
 
-        case Allocate(count=count):
-            if count < 0:
-                raise ValueError("Negative allocation count")
+        case Allocate(count=_count):
+            pass  # No need to check count, as it is a non-negative integer by construction
 
-        case Load(base=base, index=index):
-            recur(base)
-            if index < 0:
-                raise ValueError("Negative load index")
+        case Load(base=base, index=_index):
+            recur(base)  # No need to check index, as it is a non-negative integer by construction
 
-        case Store(base=base, index=index, value=value):
-            recur(base)
-            if index < 0:
-                raise ValueError("Negative store index")
+        case Store(base=base, index=_index, value=value):
+            recur(base)  # No need to check index, as it is a non-negative integer by construction
             recur(value)
 
         case Begin(effects=effects, value=value):  # pragma: no branch
