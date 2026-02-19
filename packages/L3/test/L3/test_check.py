@@ -9,6 +9,8 @@ from L3.syntax import (
     Immediate,
     Let,
     LetRec,
+    Load,
+    Primitive,
     Program,
     Reference,
 )
@@ -257,3 +259,33 @@ def test_check_letrec_unknown_body():  # makes a letrec with binding x and body 
     term = LetRec(bindings=[("x", Imm)], body=Reference(name="y"))
     with pytest.raises(ValueError):
         check_term(term, context())
+
+
+# load
+def test_check_load_valid():  # makes a load with arbitrary address 0 so should pass because it is a valid address
+    term = Load(base=x, index=0)
+    check_term(term, context("x"))
+
+
+def test_check_load_invalid():  # makes a load with arbitrary address 0 so should pass because it is a valid address
+    term = Load(base=x, index=0)
+    with pytest.raises(ValueError):
+        check_term(term, context())
+
+
+# primitive
+def test_check_primitive_valid():  # makes a primitive with operator + and left x and right x and context has x so should pass because the operator is valid and the left and right are valid terms and are defined in the context
+    term = Primitive(operator="+", left=x, right=x)
+    check_term(term, context("x"))
+
+
+def test_check_primitive_left_invalid():  # makes a primitive with operator + and left y and right x and context has x so should fail because y is not defined in the context
+    term = Primitive(operator="+", left=Reference(name="y"), right=x)
+    with pytest.raises(ValueError):
+        check_term(term, context("x"))
+
+
+def test_check_primitive_right_invalid():  # makes a primitive with operator + and left x and right y and context has x so should fail because y is not defined in the context
+    term = Primitive(operator="+", left=x, right=Reference(name="y"))
+    with pytest.raises(ValueError):
+        check_term(term, context("x"))
