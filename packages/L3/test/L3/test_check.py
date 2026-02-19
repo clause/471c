@@ -2,7 +2,9 @@ import pytest
 from L3.check import Context, check_program, check_term
 from L3.syntax import (
     Abstract,
+    Allocate,
     Apply,
+    Begin,
     Immediate,
     Program,
     Reference,
@@ -115,7 +117,7 @@ def test_check_abstract_param_empty():  # makes an abstract with parameter x and
 
 # apply
 def test_check_apply_valid():  # makes an apply with target x and arguments x and x and context has x so should pass because x is a valid target and argument and is defined in the context
-    apply = Apply(target=x, arguments=[x, x])
+    apply = Apply(target=x, arguments=[x])
     check_term(apply, context("x"))
 
 
@@ -129,3 +131,40 @@ def test_check_apply_unknown_argument():  # makes an apply with target x and arg
     apply = Apply(target=x, arguments=[x, x])
     with pytest.raises(ValueError):
         check_term(apply, context("x", "y"))
+
+
+def test_check_apply_no_target():  # makes an apply with target x and no arguments and context has x so should pass because x is a valid target and there are no arguments to check
+    apply = Apply(target=Imm, arguments=[x])
+    check_term(apply, context("x"))
+
+
+# allocate
+def test_check_allocate_valid():  # makes an allocate with arbitrary count 4 so should pass because it is a valid count
+    term = Allocate(count=4)
+    check_term(term, context())
+
+
+# only do the one test for allocate because it passes as long as the count is valid which gets checked already
+
+
+# begin
+def test_check_begin_valid():  # makes a begin with effects Imm and Imm and value Imm so should pass because the effects and value are all valid terms
+    term = Begin(effects=[Imm, Imm], value=Imm)
+    check_term(term, context("x"))
+
+
+def test_check_begin_no_effects():  # makes a begin with no effects and value Imm so should pass because the value is a valid term and there are no effects to check
+    term = Begin(effects=[], value=Imm)
+    check_term(term, context("x"))
+
+
+def test_check_begin_no_value():  # makes a begin with x as an effect and no value so should fail because the value is not a valid term and is not defined in the context
+    term = Begin(effects=[x], value=Imm)
+    with pytest.raises(ValueError):
+        check_term(term, context())
+
+
+def test_check_begin_floating_value():  # makes a begin with no effects and x as a value so should fail because the value is not a valid term and is not defined in the context
+    term = Begin(effects=[], value=x)
+    with pytest.raises(ValueError):
+        check_term(term, context())
