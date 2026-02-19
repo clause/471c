@@ -67,8 +67,10 @@ def check_term(
             local = dict.fromkeys(parameters, None)
             check_term(body, context=local)
 
-        case Apply(target=target, arguments=arguments):
-            pass
+        case Apply(target=target, arguments=arguments):  # Done
+            recur(target)
+            for argument in arguments:
+                recur(argument)
 
         case Immediate(value=_value):  # Leaf
             pass
@@ -77,20 +79,31 @@ def check_term(
             recur(left)
             recur(right)
 
-        case Branch():
-            pass
+        case Branch(operator=_operator, left=left, right=right, consequent=consequent, otherwise=otherwise):
+            recur(left)
+            recur(right)
+            recur(consequent)
+            recur(otherwise)
 
-        case Allocate():
-            pass
+        case Allocate(count=count):
+            if count < 0:
+                raise ValueError("Negative allocation count")
 
-        case Load():
-            pass
+        case Load(base=base, index=index):
+            recur(base)
+            if index < 0:
+                raise ValueError("Negative load index")
 
-        case Store():
-            pass
+        case Store(base=base, index=index, value=value):
+            recur(base)
+            if index < 0:
+                raise ValueError("Negative store index")
+            recur(value)
 
-        case Begin():  # pragma: no branch
-            pass
+        case Begin(effects=effects, value=value):  # pragma: no branch
+            for effect in effects:
+                recur(effect)
+            recur(value)
 
 
 def check_program(program: Program) -> None:
