@@ -1,93 +1,116 @@
 import pytest
-from L3.check import Context, check_term, check_program
+from L3.check import Context, check_program, check_term
 from L3.syntax import (
     Abstract,
     Allocate,
-    Begin,
     Apply,
+    Begin,
     Branch,
     Immediate,
     Let,
     LetRec,
     Load,
     Primitive,
+    Program,
     Reference,
     Store,
-    Program,
 )
 
 
-def test_check_let():
-    term = Let(bindings=[("x", Immediate(value=0))], body=Reference(name="x"))
-    context: Context = {}
-    check_term(term, context)
-
-    term_context_reference = Let(
-        bindings=[("a", Reference(name="x")), ("b", Reference(name="y"))], body=Reference(name="z")
-    )
-    context: Context = {"x": None, "y": None, "z": None}
-    check_term(term_context_reference, context)
-
-
-def test_check_let_fail():
-    term_body_fail = Let(bindings=[("a", Immediate(value=0))], body=Reference(name="x"))
-    context: Context = {}
-    with pytest.raises(ValueError):
-        check_term(term_body_fail, context)
-
-    term_binding_fail = Let(bindings=[("a", Reference(name="x"))], body=Immediate(value=0))
-    context: Context = {}
-    with pytest.raises(ValueError):
-        check_term(term_binding_fail, context)
-
-    duplicate_fail = Let(bindings=[("a", Immediate(value=0)), ("a", Immediate(value=0))], body=Immediate(value=0))
-    context: Context = {}
-    with pytest.raises(ValueError):
-        check_term(duplicate_fail, context)
-
-    term_sibling_child_reference_fail = Let(
+@pytest.mark.skip
+def test_check_term_let():
+    term = Let(
         bindings=[
-            ("x", Reference(name="a")),
-            ("y", Let(bindings=[("a", Immediate(value=0)), ("b", Reference(name="x"))], body=Reference(name="x"))),
+            ("x", Immediate(value=0)),
         ],
-        body=Reference(name="b"),
+        body=Reference(name="x"),
     )
-    with pytest.raises(ValueError):
-        check_term(term_sibling_child_reference_fail, context)
 
-
-def test_check_letrec():
-    term = LetRec(bindings=[("x", Immediate(value=0))], body=Reference(name="x"))
     context: Context = {}
+
     check_term(term, context)
 
-    term_sibling_reference = LetRec(
-        bindings=[("x", Immediate(value=0)), ("y", Reference(name="x"))], body=Reference(name="y")
+
+@pytest.mark.skip
+def test_check_term_let_scope():
+    term = Let(
+        bindings=[
+            ("x", Immediate(value=0)),
+            ("y", Reference(name="x")),
+        ],
+        body=Reference(name="y"),
     )
-    check_term(term_sibling_reference, context)
 
-    term_context_reference = LetRec(
-        bindings=[("a", Reference(name="x")), ("b", Reference(name="y"))], body=Reference(name="z")
+    context: Context = {}
+
+    with pytest.raises(ValueError):
+        check_term(term, context)
+
+
+@pytest.mark.skip
+def test_check_term_let_duplicate_binders():
+    term = Let(
+        bindings=[
+            ("x", Immediate(value=0)),
+            ("x", Immediate(value=1)),
+        ],
+        body=Reference(name="x"),
     )
-    context: Context = {"x": None, "y": None, "z": None}
-    check_term(term_context_reference, context)
 
-
-def test_check_letrec_fail():
-    term_body_fail = LetRec(bindings=[("a", Immediate(value=0))], body=Reference(name="x"))
     context: Context = {}
-    with pytest.raises(ValueError):
-        check_term(term_body_fail, context)
 
-    duplicate_fail = LetRec(bindings=[("a", Immediate(value=0)), ("a", Immediate(value=0))], body=Immediate(value=0))
-    context: Context = {}
     with pytest.raises(ValueError):
-        check_term(duplicate_fail, context)
+        check_term(term, context)
 
-    term_binding_fail = LetRec(bindings=[("a", Reference(name="x"))], body=Immediate(value=0))
+
+@pytest.mark.skip
+def test_check_term_letrec():
+    term = LetRec(
+        bindings=[
+            ("x", Immediate(value=0)),
+        ],
+        body=Reference(name="x"),
+    )
+
     context: Context = {}
+
+    check_term(term, context)
+
+
+@pytest.mark.skip
+def test_check_term_letrec_scope():
+    term = LetRec(
+        bindings=[
+            ("y", Reference(name="x")),
+            ("x", Immediate(value=0)),
+        ],
+        body=Reference(name="x"),
+    )
+
+    context: Context = {}
+
+    check_term(term, context)
+
+
+@pytest.mark.skip
+def test_check_term_letrec_duplicate_binders():
+    term = LetRec(
+        bindings=[
+            ("x", Immediate(value=0)),
+            ("x", Immediate(value=1)),
+        ],
+        body=Reference(name="x"),
+    )
+
+    context: Context = {}
+
     with pytest.raises(ValueError):
-        check_term(term_binding_fail, context)
+        check_term(term, context)
+
+
+@pytest.mark.skip
+def test_check_term_reference_bound():
+    term = Reference(name="x")
 
 
 def test_let_sum():

@@ -1,3 +1,4 @@
+from collections import Counter
 from collections.abc import Mapping
 from functools import partial
 
@@ -13,6 +14,7 @@ from .syntax import (
     LetRec,
     Load,
     Primitive,
+    Program,
     Reference,
     Store,
     Term,
@@ -26,39 +28,45 @@ def check_term(
     term: Term,
     context: Context,
 ) -> None:
-    recur = partial(check_term, context=context)  # noqa: F841
+    recur = partial(check_term, context=context)
 
     match term:
         case Let(bindings=bindings, body=body):
-            identifiers = [identifier for identifier, _ in bindings]
-            duplicates = len(set(identifiers)) < len(identifiers)
+            counts = Counter(name for name, _ in bindings)
+            duplicates = {name: count for name, count in counts.items() if count > 1}
             if duplicates:
-                raise ValueError("Duplicate identifiers")
+                raise ValueError(f"duplicate binders: {duplicates}")
 
-            for _, term in bindings:
-                recur(term)
-            binding_identifiers = {identifier: None for (identifier, _) in bindings}
-            recur(body, context={**context, **binding_identifiers})
+            for _, value in bindings:
+                recur(value)
+
+            local = dict.fromkeys([name for name, _ in bindings])
+            recur(body, context={**context, **local})
 
         case LetRec(bindings=bindings, body=body):
-            identifiers = [identifier for identifier, _ in bindings]
-            duplicates = len(set(identifiers)) < len(identifiers)
+            counts = Counter(name for name, _ in bindings)
+            duplicates = {name: count for name, count in counts.items() if count > 1}
             if duplicates:
-                raise ValueError("Duplicate identifiers")
-            binding_identifiers = {identifier: None for (identifier, _) in bindings}
-            for _, term in bindings:
-                recur(term, context={**context, **binding_identifiers})
-            recur(body, context={**context, **binding_identifiers})
+                raise ValueError(f"duplicate binders: {duplicates}")
+
+            local = dict.fromkeys([name for name, _ in bindings])
+
+            for name, value in bindings:
+                recur(value, context={**context, **local})
+
+            check_term(body, {**context, **local})
 
         case Reference(name=name):
             if name not in context:
-                raise ValueError()
+                raise ValueError(f"unknown variable: {name}")
 
         case Abstract(parameters=parameters, body=body):
-            duplicates = len(set(parameters)) < len(parameters)
+            counts = Counter(parameters)
+            duplicates = {name for name, count in counts.items() if count > 1}
             if duplicates:
-                raise ValueError("Duplicate identifiers")
-            local = {parameter: None for parameter in parameters}
+                raise ValueError(f"duplicate parameters: {duplicates}")
+
+            local = dict.fromkeys(parameters, None)
             recur(body, context={**context, **local})
 
         case Apply(target=target, arguments=arguments):
@@ -66,7 +74,7 @@ def check_term(
             for argument in arguments:
                 recur(argument)
 
-        case Immediate(value=value):
+        case Immediate(value=_value):
             pass
 
         case Primitive(operator=_operator, left=left, right=right):
@@ -79,13 +87,13 @@ def check_term(
             recur(consequent)
             recur(otherwise)
 
-        case Allocate():
+        case Allocate(count=_count):
             pass
 
-        case Load(base=base):
+        case Load(base=base, index=_index):
             recur(base)
 
-        case Store(base=base, value=value):
+        case Store(base=base, index=_index, value=value):
             recur(base)
             recur(value)
 
@@ -100,8 +108,10 @@ def check_program(
 ) -> None:
     match program:
         case Program(parameters=parameters, body=body):  # pragma: no branch
-            duplicates = len(set(parameters)) < len(parameters)
+            counts = Counter(parameters)
+            duplicates = {name for name, count in counts.items() if count > 1}
             if duplicates:
-                raise ValueError("Duplicate identifiers")
+                raise ValueError(f"duplicate parameters: {duplicates}")
+
             local = dict.fromkeys(parameters, None)
             check_term(body, context=local)
