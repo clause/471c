@@ -17,7 +17,6 @@ from L3.syntax import (
 )
 
 
-@pytest.mark.skip
 def test_check_term_let():
     term = Let(
         bindings=[
@@ -31,7 +30,6 @@ def test_check_term_let():
     check_term(term, context)
 
 
-@pytest.mark.skip
 def test_check_term_let_scope():
     term = Let(
         bindings=[
@@ -47,7 +45,6 @@ def test_check_term_let_scope():
         check_term(term, context)
 
 
-@pytest.mark.skip
 def test_check_term_let_duplicate_binders():
     term = Let(
         bindings=[
@@ -63,7 +60,6 @@ def test_check_term_let_duplicate_binders():
         check_term(term, context)
 
 
-@pytest.mark.skip
 def test_check_term_letrec():
     term = LetRec(
         bindings=[
@@ -77,7 +73,6 @@ def test_check_term_letrec():
     check_term(term, context)
 
 
-@pytest.mark.skip
 def test_check_term_letrec_scope():
     term = LetRec(
         bindings=[
@@ -92,7 +87,6 @@ def test_check_term_letrec_scope():
     check_term(term, context)
 
 
-@pytest.mark.skip
 def test_check_term_letrec_duplicate_binders():
     term = LetRec(
         bindings=[
@@ -108,7 +102,6 @@ def test_check_term_letrec_duplicate_binders():
         check_term(term, context)
 
 
-@pytest.mark.skip
 def test_check_term_reference_bound():
     term = Reference(name="x")
 
