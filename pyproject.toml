@@ -19,6 +19,7 @@ dev = [
 
 [tool.ruff]
 line-length = 120
+lint.ignore = ["F841"]
 
 [tool.uv.workspace]
 members = ["packages/*"]
