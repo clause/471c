@@ -17,7 +17,10 @@ def eliminate_letrec_term(
 
     match term:
         case L3.Let(bindings=bindings, body=body):
-            pass
+            return L2.Let(
+                bindings=[(name, recur(value)) for name, value in bindings],
+                body=recur(body, context={**context, **dict.fromkeys([name for name, _ in bindings])}),
+            )
 
         case L3.LetRec(bindings=bindings, body=body):
             pass
@@ -25,7 +28,10 @@ def eliminate_letrec_term(
         case L3.Reference(name=name):
             # if name is a recursive variable -> (Load (Reference name)))
             # else (Reference name)
-            pass
+            if name in context:
+                return L2.Load(base=L2.Reference(name=name), index=0)
+            else:
+                return L2.Reference(name=name)
 
         case L3.Abstract(parameters=parameters, body=body):
             pass
