@@ -1,3 +1,4 @@
+from collections import Counter
 from collections.abc import Mapping
 from functools import partial
 
@@ -13,6 +14,7 @@ from .syntax import (
     LetRec,
     Load,
     Primitive,
+    Program,
     Reference,
     Store,
     Term,
@@ -49,83 +51,86 @@ def check_term(
 
     match term:
         case Let(bindings=bindings, body=body):
-            # Let introduces new bindings sequentially:
-            # - Each RHS is checked under the context extended by previous bindings in the same let.
-            ctx: dict[Identifier, None] = dict(context)
-            for name, value in bindings:
-                check_term(value, ctx)
-                if name in ctx:
-                    raise ValueError(f"duplicate binding (shadowing not allowed): {name!r}")
-                ctx[name] = None
-            check_term(body, ctx)
+            counts = Counter(name for name, _ in bindings)
+            duplicates = {name: count for name, count in counts.items() if count > 1}
+            if duplicates:
+                raise ValueError(f"duplicate binders: {duplicates}")
+
+            for _, value in bindings:
+                recur(value)
+
+            local = dict.fromkeys([name for name, _ in bindings])
+            recur(body, context={**context, **local})
 
         case LetRec(bindings=bindings, body=body):
-            # LetRec supports recursion:
-            # - First pre-bind all names (so functions can refer to each other),
-            # - Then check each RHS in the extended context.
-            ctx: dict[Identifier, None] = dict(context)
-            for name, _value in bindings:
-                if name in ctx:
-                    raise ValueError(f"duplicate binding (shadowing not allowed): {name!r}")
-                ctx[name] = None
+            counts = Counter(name for name, _ in bindings)
+            duplicates = {name: count for name, count in counts.items() if count > 1}
+            if duplicates:
+                raise ValueError(f"duplicate binders: {duplicates}")
 
-            for _name, value in bindings:
-                check_term(value, ctx)
+            local = dict.fromkeys([name for name, _ in bindings])
 
-            check_term(body, ctx)
+            for name, value in bindings:
+                recur(value, context={**context, **local})
+
+            check_term(body, {**context, **local})
 
         case Reference(name=name):
-            # A reference is valid only if the identifier is already bound in `context`.
             if name not in context:
-                raise ValueError(f"unbound identifier: {name!r}")
+                raise ValueError(f"unknown variable: {name}")
 
         case Abstract(parameters=parameters, body=body):
-            # Abstract (lambda) introduces parameter bindings.
-            # This checker disallows duplicates/shadowing for simplicity and to match lowering assumptions.
-            ctx: dict[Identifier, None] = dict(context)
-            for p in parameters:
-                if p in ctx:
-                    raise ValueError(f"duplicate binding (shadowing not allowed): {p!r}")
-                ctx[p] = None
-            check_term(body, ctx)
+            counts = Counter(parameters)
+            duplicates = {name for name, count in counts.items() if count > 1}
+            if duplicates:
+                raise ValueError(f"duplicate parameters: {duplicates}")
+
+            local = dict.fromkeys(parameters, None)
+            recur(body, context={**context, **local})
 
         case Apply(target=target, arguments=arguments):
-            # Check the function position and then all argument terms.
             recur(target)
-            for arg in arguments:
-                recur(arg)
+            for argument in arguments:
+                recur(argument)
 
-        case Immediate():
-            # Literal immediates (e.g., integers) have no binding constraints.
-            return
+        case Immediate(value=_value):
+            pass
 
-        case Primitive(left=left, right=right):
-            # Primitive operations recursively check their operands.
+        case Primitive(operator=_operator, left=left, right=right):
             recur(left)
             recur(right)
 
-        case Branch(left=left, right=right, consequent=consequent, otherwise=otherwise):
-            # Branch checks its condition operands and both result branches.
+        case Branch(operator=_operator, left=left, right=right, consequent=consequent, otherwise=otherwise):
             recur(left)
             recur(right)
             recur(consequent)
             recur(otherwise)
 
-        case Allocate():
-            # Allocation count is assumed validated elsewhere; nothing to bind-check.
-            return
+        case Allocate(count=_count):
+            pass
 
-        case Load(base=base):
-            # Loading from memory: base term must be semantically valid.
+        case Load(base=base, index=_index):
             recur(base)
 
-        case Store(base=base, value=value):
-            # Storing to memory: both base and stored value must be semantically valid.
+        case Store(base=base, index=_index, value=value):
             recur(base)
             recur(value)
 
         case Begin(effects=effects, value=value):  # pragma: no branch
-            # Begin sequences effect terms then returns value term.
-            for eff in effects:
-                recur(eff)
+            for effect in effects:
+                recur(effect)
             recur(value)
+
+
+def check_program(
+    program: Program,
+) -> None:
+    match program:
+        case Program(parameters=parameters, body=body):  # pragma: no branch
+            counts = Counter(parameters)
+            duplicates = {name for name, count in counts.items() if count > 1}
+            if duplicates:
+                raise ValueError(f"duplicate parameters: {duplicates}")
+
+            local = dict.fromkeys(parameters, None)
+            check_term(body, context=local)
