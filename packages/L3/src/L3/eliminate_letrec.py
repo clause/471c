@@ -58,10 +58,13 @@ def eliminate_letrec_term(
             )
 
         case L3.Store(base=base, index=_index, value=value):
-            pass
+            recur(base)
+            recur(value)
 
         case L3.Begin(effects=effects, value=value):  # pragma: no branch
-            pass
+            for effect in effects:
+                recur(effect)
+            recur(value)
 
 
 def eliminate_letrec_program(
