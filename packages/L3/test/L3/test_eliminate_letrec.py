@@ -42,17 +42,15 @@ def test_eliminate_letrec_program():
 
 
 def test_eliminate_letrec_reference_recursive():
-    term = L3.Reference(name="x")
-
-    context: Context = {"x": None}
-
-    expected = L2.Load(
-        base=L2.Reference(name="x"),
-        index=0,
+    term = L3.LetRec(
+        bindings=[("x", L3.Immediate(value=0))],
+        body=L3.Reference(name="x"),
     )
-
-    actual = eliminate_letrec_term(term, context)
-
+    expected = L2.Let(
+        bindings=[("x", L2.Immediate(value=0))],
+        body=L2.Load(base=L2.Reference(name="x"), index=0),
+    )
+    actual = eliminate_letrec_term(term, context={})
     assert actual == expected
 
 
@@ -68,20 +66,15 @@ def test_eliminate_letrec_reference_non_recursive():
     assert actual == expected
 
 
-def test_eliminate_letrec_binding_self_reference():
+def test_eliminate_letrec_body_uses_recursive_binding():
     term = L3.LetRec(
-        bindings=[("x", L3.Reference(name="x"))],
-        body=L3.Immediate(value=0),
+        bindings=[("x", L3.Immediate(value=1))],
+        body=L3.Reference(name="x"),
     )
 
     expected = L2.Let(
-        bindings=[
-            (
-                "x",
-                L2.Reference(name="x"),
-            )
-        ],
-        body=L2.Immediate(value=0),
+        bindings=[("x", L2.Immediate(value=1))],
+        body=L2.Load(base=L2.Reference(name="x"), index=0),
     )
 
     actual = eliminate_letrec_term(term, context={})
@@ -135,6 +128,51 @@ def test_eliminate_letrec_primitive_branch():
     assert actual == expected
 
 
+def test_eliminate_letrec_nested_primitives():
+    term = L3.Primitive(
+        operator="+",
+        left=L3.Primitive(
+            operator="+",
+            left=L3.Immediate(value=1),
+            right=L3.Immediate(value=2),
+        ),
+        right=L3.Immediate(value=3),
+    )
+    expected = L2.Primitive(
+        operator="+",
+        left=L2.Primitive(
+            operator="+",
+            left=L2.Immediate(value=1),
+            right=L2.Immediate(value=2),
+        ),
+        right=L2.Immediate(value=3),
+    )
+    actual = eliminate_letrec_term(term, context={})
+    assert actual == expected
+
+
+def test_eliminate_letrec_branch_equals():
+    term = L3.Branch(
+        operator="==",
+        left=L3.Immediate(value=1),
+        right=L3.Immediate(value=1),
+        consequent=L3.Immediate(value=7),
+        otherwise=L3.Immediate(value=8),
+    )
+
+    expected = L2.Branch(
+        operator="==",
+        left=L2.Immediate(value=1),
+        right=L2.Immediate(value=1),
+        consequent=L2.Immediate(value=7),
+        otherwise=L2.Immediate(value=8),
+    )
+
+    actual = eliminate_letrec_term(term, context={})
+
+    assert actual == expected
+
+
 def test_eliminate_letrec_memory_and_begin():
     term = L3.Begin(
         effects=[
@@ -162,6 +200,40 @@ def test_eliminate_letrec_memory_and_begin():
             base=L2.Allocate(count=1),
             index=0,
         ),
+    )
+
+    actual = eliminate_letrec_term(term, context={})
+
+    assert actual == expected
+
+
+def test_eliminate_letrec_allocate_and_load():
+    term = L3.Load(
+        base=L3.Allocate(count=1),
+        index=0,
+    )
+
+    expected = L2.Load(
+        base=L2.Allocate(count=1),
+        index=0,
+    )
+
+    actual = eliminate_letrec_term(term, context={})
+
+    assert actual == expected
+
+
+def test_eliminate_letrec_store():
+    term = L3.Store(
+        base=L3.Allocate(count=1),
+        index=0,
+        value=L3.Immediate(value=42),
+    )
+
+    expected = L2.Store(
+        base=L2.Allocate(count=1),
+        index=0,
+        value=L2.Immediate(value=42),
     )
 
     actual = eliminate_letrec_term(term, context={})
