@@ -7,6 +7,7 @@ from lark.visitors import v_args  # pyright: ignore[reportUnknownVariableType]
 from .syntax import (
     Identifier,
     Let,
+    LetRec,
     Program,
     Term,
 )
@@ -57,7 +58,7 @@ class AstTransformer(Transformer[Token, Program | Term]):
         bindings: Sequence[tuple[Identifier, Term]],
         body: Term,
     ) -> Term:
-        return Let(
+        return LetRec(
             bindings=bindings,
             body=body,
         )
