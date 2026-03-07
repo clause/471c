@@ -27,24 +27,21 @@ def eliminate_letrec_term(
             binding_as_context = {identifier: None for identifier, _ in bindings}
             l2_context = {**binding_as_context, **context}
             recur_with_updated_context = partial(eliminate_letrec_term, context=l2_context)
-            l2_bindings_allocates = [("_" + identifier, L2.Allocate(count=1)) for identifier, _ in bindings]
+            l2_bindings_allocates = [(identifier, L2.Allocate(count=1)) for identifier, _ in bindings]
             l2_bindings_stores = [
-                (
-                    "_store_" + identifier,
-                    L2.Store(
-                        base=L2.Reference(name="_" + identifier),
-                        index=0,
-                        value=recur_with_updated_context(binding),
-                    ),
+                L2.Store(
+                    base=L2.Reference(name=identifier),
+                    index=0,
+                    value=recur_with_updated_context(binding),
                 )
                 for identifier, binding in bindings
             ]
-            l2_bindings_loads = [
-                (identifier, L2.Load(base=L2.Reference(name="_" + identifier), index=0)) for identifier, _ in bindings
-            ]
             return L2.Let(
-                bindings=[*l2_bindings_allocates, *l2_bindings_stores, *l2_bindings_loads],
-                body=recur_with_updated_context(body),
+                bindings=[*l2_bindings_allocates],
+                body=L2.Begin(
+                    effects=[*l2_bindings_stores],
+                    value=recur_with_updated_context(body),
+                ),
             )
 
         case L3.Reference(name=name):
