@@ -9,6 +9,7 @@ from .syntax import (
     Apply,
     Begin,
     Branch,
+    Identifier,
     Immediate,
     Let,
     LetRec,
@@ -20,7 +21,7 @@ from .syntax import (
     Term,
 )
 
-type Context = Mapping[str, str]
+type Context = Mapping[Identifier, Identifier]
 
 
 def uniqify_term(

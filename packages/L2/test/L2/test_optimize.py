@@ -1,5 +1,5 @@
 import pytest
-from L2.optimize import optimize_program
+from L2.main import main as optimize_program
 from L2.syntax import (
     Immediate,
     Primitive,

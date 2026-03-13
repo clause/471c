@@ -1,9 +1,10 @@
 from pathlib import Path
 
 import click
-from L1.to_python import to_ast_program
-from L2.cps_convert import cps_convert_program
-from L2.optimize import optimize_program
+
+# from L2.cps_convert import cps_convert_program
+from L2.main import main as optimize_program
+from L2.to_python import to_ast_program
 
 from .check import check_program
 from .eliminate_letrec import eliminate_letrec_program
@@ -51,15 +52,15 @@ def main(
     if check:
         check_program(l3)
 
-    fresh, l3 = uniqify_program(l3)
+    fresh, l3 = uniqify_program(l3)  # type: ignore
 
     l2 = eliminate_letrec_program(l3)
 
     if optimize:
         l2 = optimize_program(l2)
 
-    l1 = cps_convert_program(l2, fresh)
+    # l1 = cps_convert_program(l2, fresh)
 
-    module = to_ast_program(l1)
+    module = to_ast_program(l2)
 
     (output or input.with_suffix(".py")).write_text(module)
