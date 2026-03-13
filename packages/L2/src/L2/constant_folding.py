@@ -1,4 +1,3 @@
-from collections.abc import Mapping
 from functools import partial
 
 from .syntax import (
@@ -7,7 +6,6 @@ from .syntax import (
     Apply,
     Begin,
     Branch,
-    Identifier,
     Immediate,
     Let,
     Load,
@@ -16,8 +14,12 @@ from .syntax import (
     Store,
     Term,
 )
-
-type Context = Mapping[Identifier, Term]
+from .util import (
+    Context,
+    extend_context_with_bindings,
+    normalize_commutative_immediate_left,
+    recur_terms,
+)
 
 
 def constant_folding_term(
@@ -28,13 +30,7 @@ def constant_folding_term(
 
     match term:
         case Let(bindings=bindings, body=body):
-            new_bindings: list[tuple[Identifier, Term]] = []
-            new_context = dict(context)
-            for name, value in bindings:
-                folded = recur(value)
-                new_bindings.append((name, folded))
-                if isinstance(folded, Immediate | Reference):
-                    new_context[name] = folded
+            new_bindings, new_context = extend_context_with_bindings(bindings, context, recur)
             return Let(
                 bindings=new_bindings,
                 body=constant_folding_term(body, new_context),
@@ -51,7 +47,7 @@ def constant_folding_term(
         case Apply(target=target, arguments=arguments):
             return Apply(
                 target=recur(target),
-                arguments=[recur(a) for a in arguments],
+                arguments=recur_terms(arguments, recur),
             )
 
         case Immediate(value=_value):
@@ -82,11 +78,7 @@ def constant_folding_term(
                             )
 
                         case left, Immediate() as right:
-                            return Primitive(
-                                operator="+",
-                                left=right,
-                                right=left,
-                            )
+                            return normalize_commutative_immediate_left("+", left, right)
 
                         case left, right:
                             return Primitive(
@@ -121,7 +113,7 @@ def constant_folding_term(
                             return left
 
                         case left, Immediate() as right:
-                            return Primitive(operator="*", left=right, right=left)
+                            return normalize_commutative_immediate_left("*", left, right)
 
                         case left, right:
                             return Primitive(operator="*", left=left, right=right)
@@ -162,4 +154,4 @@ def constant_folding_term(
             return Store(base=recur(base), index=index, value=recur(value))
 
         case Begin(effects=effects, value=value):  # pragma: no branch
-            return Begin(effects=[recur(e) for e in effects], value=recur(value))
+            return Begin(effects=recur_terms(effects, recur), value=recur(value))
