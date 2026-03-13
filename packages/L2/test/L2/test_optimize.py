@@ -1,4 +1,3 @@
-import pytest
 from L2.main import main as optimize_program
 from L2.syntax import (
     Immediate,
@@ -7,7 +6,6 @@ from L2.syntax import (
 )
 
 
-@pytest.mark.skip()
 def test_optimize_program():
     program = Program(
         parameters=[],
@@ -22,6 +20,72 @@ def test_optimize_program():
         parameters=[],
         body=Immediate(value=2),
     )
+
+    actual = optimize_program(program)
+
+    assert actual == expected
+
+
+def test_optimize_program_no_optimization():
+    program = Program(
+        parameters=[],
+        body=Primitive(
+            operator="+",
+            left=Immediate(value=1),
+            right=Immediate(value=2),
+        ),
+    )
+
+    expected = program
+
+    actual = optimize_program(program)
+
+    assert actual == expected
+
+
+def test_optimize_program_nested():
+    program = Program(
+        parameters=[],
+        body=Primitive(
+            operator="+",
+            left=Primitive(
+                operator="+",
+                left=Immediate(value=1),
+                right=Immediate(value=1),
+            ),
+            right=Immediate(value=1),
+        ),
+    )
+
+    expected = Program(
+        parameters=[],
+        body=Primitive(
+            operator="+",
+            left=Immediate(value=2),
+            right=Immediate(value=1),
+        ),
+    )
+
+    actual = optimize_program(program)
+
+    assert actual == expected
+
+
+def test_optimize_program_no_optimization_nested():
+    program = Program(
+        parameters=[],
+        body=Primitive(
+            operator="+",
+            left=Primitive(
+                operator="+",
+                left=Immediate(value=1),
+                right=Immediate(value=2),
+            ),
+            right=Immediate(value=1),
+        ),
+    )
+
+    expected = program
 
     actual = optimize_program(program)
 
