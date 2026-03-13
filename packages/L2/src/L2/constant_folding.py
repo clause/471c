@@ -17,9 +17,20 @@ from .syntax import (
 from .util import (
     Context,
     extend_context_with_bindings,
-    normalize_commutative_immediate_left,
     recur_terms,
 )
+
+
+def _normalize_commutative_immediate_left(
+    operator: str,
+    left: Term,
+    right: Term,
+) -> Primitive:
+    return Primitive(
+        operator=operator,  # type: ignore[arg-type]
+        left=right,
+        right=left,
+    )
 
 
 def constant_folding_term(
@@ -78,7 +89,7 @@ def constant_folding_term(
                             )
 
                         case left, Immediate() as right:
-                            return normalize_commutative_immediate_left("+", left, right)
+                            return _normalize_commutative_immediate_left("+", left, right)
 
                         case left, right:
                             return Primitive(
@@ -113,7 +124,7 @@ def constant_folding_term(
                             return left
 
                         case left, Immediate() as right:
-                            return normalize_commutative_immediate_left("*", left, right)
+                            return _normalize_commutative_immediate_left("*", left, right)
 
                         case left, right:
                             return Primitive(operator="*", left=left, right=right)

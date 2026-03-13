@@ -48,16 +48,26 @@ def uniqify_term(
             pass
 
         case Immediate():
-            pass
+            return term
 
         case Primitive(operator=operator, left=left, right=right):
-            pass
+            return Primitive(
+                operator=operator,
+                left=_term(left),
+                right=_term(right),
+            )
 
         case Branch(operator=operator, left=left, right=right, consequent=consequent, otherwise=otherwise):
-            pass
+            return Branch(
+                operator=operator,
+                left=_term(left),
+                right=_term(right),
+                consequent=_term(consequent),
+                otherwise=_term(otherwise),
+            )
 
         case Allocate():
-            pass
+            return term
 
         case Load(base=base, index=index):
             pass
@@ -66,7 +76,10 @@ def uniqify_term(
             pass
 
         case Begin(effects=effects, value=value):  # pragma: no branch
-            pass
+            return Begin(
+                effects=[_term(effect) for effect in effects],
+                value=_term(value),
+            )
 
 
 def uniqify_program(

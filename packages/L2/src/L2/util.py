@@ -3,7 +3,6 @@ from collections.abc import Callable, Sequence
 from .syntax import (
     Identifier,
     Immediate,
-    Primitive,
     Reference,
     Term,
 )
@@ -31,15 +30,3 @@ def extend_context_with_bindings(
         if isinstance(result, Immediate | Reference):
             new_context[name] = result
     return new_bindings, new_context
-
-
-def normalize_commutative_immediate_left(
-    operator: str,
-    left: Term,
-    right: Term,
-) -> Primitive:
-    return Primitive(
-        operator=operator,  # type: ignore[arg-type]
-        left=right,
-        right=left,
-    )
