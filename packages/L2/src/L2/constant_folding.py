@@ -91,7 +91,9 @@ def constant_folding_term(
                         case left, Immediate() as right:
                             return _normalize_commutative_immediate_left("+", left, right)
 
-                        case left, right:
+                        # Coverage reports a synthetic exit arc on this fallback match arm.
+                        # The arm is intentionally reachable and returns the non-folded primitive.
+                        case left, right:  # pragma: no branch
                             return Primitive(
                                 operator="+",
                                 left=left,
@@ -103,10 +105,14 @@ def constant_folding_term(
                         case Immediate(value=i1), Immediate(value=i2):
                             return Immediate(value=i1 - i2)
 
-                        case left, right:
+                        # Coverage reports a synthetic exit arc on this fallback match arm.
+                        # The arm is intentionally reachable and returns the non-folded primitive.
+                        case left, right:  # pragma: no branch
                             return Primitive(operator="-", left=left, right=right)
 
-                case "*":
+                # Coverage may report an extra arc on this literal case label under pattern matching.
+                # Runtime terms validated by the syntax model still follow normal folding logic below.
+                case "*":  # pragma: no branch
                     match recur(left), recur(right):
                         case Immediate(value=i1), Immediate(value=i2):
                             return Immediate(value=i1 * i2)
@@ -126,7 +132,9 @@ def constant_folding_term(
                         case left, Immediate() as right:
                             return _normalize_commutative_immediate_left("*", left, right)
 
-                        case left, right:
+                        # Coverage reports a synthetic exit arc on this fallback match arm.
+                        # The arm is intentionally reachable and returns the non-folded primitive.
+                        case left, right:  # pragma: no branch
                             return Primitive(operator="*", left=left, right=right)
 
         case Branch(operator=operator, left=left, right=right, consequent=consequent, otherwise=otherwise):
@@ -141,7 +149,9 @@ def constant_folding_term(
                             return folded_consequent if i1 < i2 else folded_otherwise
                         case _:
                             pass
-                case "==":
+                # Coverage may report an extra arc on this literal case label under pattern matching.
+                # Runtime terms validated by the syntax model use only "<" and "==".
+                case "==":  # pragma: no branch
                     match folded_left, folded_right:
                         case Immediate(value=i1), Immediate(value=i2):
                             return folded_consequent if i1 == i2 else folded_otherwise
@@ -164,5 +174,7 @@ def constant_folding_term(
         case Store(base=base, index=index, value=value):
             return Store(base=recur(base), index=index, value=recur(value))
 
+        # Coverage may report an extra structural arc for this match arm.
+        # Semantically this always returns the reconstructed Begin node.
         case Begin(effects=effects, value=value):  # pragma: no branch
             return Begin(effects=recur_terms(effects, recur), value=recur(value))
