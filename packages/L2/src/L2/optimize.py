@@ -22,7 +22,7 @@ def optimize_program_step(
     return eliminated, eliminated != program
 
 
-def main(
+def optimize_program(
     program: Program,
 ) -> Program:
     current = program

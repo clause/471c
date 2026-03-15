@@ -3,7 +3,7 @@ from pathlib import Path
 import click
 
 # from L2.cps_convert import cps_convert_program
-from L2.main import main as optimize_program
+from L2.optimize import optimize_program
 from L2.to_python import to_ast_program
 
 from .check import check_program
