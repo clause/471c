@@ -5,9 +5,20 @@ from lark import Lark, Token, Transformer
 from lark.visitors import v_args  # pyright: ignore[reportUnknownVariableType]
 
 from .syntax import (
+    Abstract,
+    Allocate,
+    Apply,
+    Begin,
+    Branch,
     Identifier,
+    Immediate,
     Let,
+    LetRec,
+    Load,
+    Primitive,
     Program,
+    Reference,
+    Store,
     Term,
 )
 
@@ -57,7 +68,7 @@ class AstTransformer(Transformer[Token, Program | Term]):
         bindings: Sequence[tuple[Identifier, Term]],
         body: Term,
     ) -> Term:
-        return Let(
+        return LetRec(
             bindings=bindings,
             body=body,
         )
@@ -71,10 +82,121 @@ class AstTransformer(Transformer[Token, Program | Term]):
     @v_args(inline=True)
     def binding(
         self,
-        name: Identifier,
+        name: Token,
         value: Term,
     ) -> tuple[Identifier, Term]:
-        return name, value
+        return str(name), value
+
+    @v_args(inline=True)
+    def reference(
+        self,
+        name: Token,
+    ) -> Term:
+        return Reference(name=str(name))
+
+    @v_args(inline=True)
+    def abstract(
+        self,
+        _lambda: Token,
+        parameters: Sequence[Identifier],
+        body: Term,
+    ) -> Term:
+        return Abstract(
+            parameters=list(parameters),
+            body=body,
+        )
+
+    def apply(
+        self,
+        args: Sequence[Term],
+    ) -> Term:
+        target, *arguments = args
+        return Apply(
+            target=target,
+            arguments=arguments,
+        )
+
+    @v_args(inline=True)
+    def immediate(
+        self,
+        value: Token,
+    ) -> Term:
+        return Immediate(value=int(value))
+
+    @v_args(inline=True)
+    def primitive(
+        self,
+        operator: Token,
+        left: Term,
+        right: Term,
+    ) -> Term:
+        return Primitive(
+            operator=str(operator),
+            left=left,
+            right=right,
+        )
+
+    @v_args(inline=True)
+    def branch(
+        self,
+        _if: Token,
+        operator: Token,
+        left: Term,
+        right: Term,
+        consequent: Term,
+        otherwise: Term,
+    ) -> Term:
+        return Branch(
+            operator=str(operator),
+            left=left,
+            right=right,
+            consequent=consequent,
+            otherwise=otherwise,
+        )
+
+    @v_args(inline=True)
+    def allocate(
+        self,
+        _allocate: Token,
+        count: Token,
+    ) -> Term:
+        return Allocate(count=int(count))
+
+    @v_args(inline=True)
+    def load(
+        self,
+        _load: Token,
+        base: Token,
+        index: Token,
+    ) -> Term:
+        return Load(
+            base=Reference(name=str(base)),
+            index=int(index),
+        )
+
+    @v_args(inline=True)
+    def store(
+        self,
+        _store: Token,
+        base: Token,
+        index: Token,
+        value: Term,
+    ) -> Term:
+        return Store(
+            base=Reference(name=str(base)),
+            index=int(index),
+            value=value,
+        )
+
+    def begin(
+        self,
+        terms: Sequence[Term],
+    ) -> Term:
+        *effects, value = terms
+        return Begin(
+            effects=effects,
+            value=value,
+        )
 
 
 def parse_term(source: str) -> Term:
