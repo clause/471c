@@ -42,7 +42,7 @@ def uniqify_term(
 
             return Let(
                 bindings=new_bindings,
-                body=_term(body, new_context),
+                body=uniqify_term(body, new_context, fresh),
             )
 
         case LetRec(bindings=bindings, body=body):
@@ -53,9 +53,11 @@ def uniqify_term(
                 new_bindings.append((new_name, value))
                 new_context = {**new_context, name: new_name}
 
+            _new_term = partial(uniqify_term, context=new_context, fresh=fresh)
+
             return LetRec(
-                bindings=[(new_name, _term(value)) for new_name, value in new_bindings],
-                body=_term(body, new_context),
+                bindings=[(new_name, _new_term(value)) for new_name, value in new_bindings],
+                body=_new_term(body),
             )
 
         case Reference(name=name):
@@ -71,7 +73,7 @@ def uniqify_term(
             }
             return Abstract(
                 parameters=new_parameters,
-                body=_term(body, new_context),
+                body=uniqify_term(body, new_context, fresh),
             )
 
         case Apply(target=target, arguments=arguments):
