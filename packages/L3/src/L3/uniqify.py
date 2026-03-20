@@ -24,6 +24,7 @@ from .syntax import (
 type Context = Mapping[Identifier, Identifier]
 
 
+# This pass is responsible for renaming all identifiers in a program to be unique. This is necessary for the later stages of the compiler, which rely on the fact that all identifiers are unique.
 def uniqify_term(
     term: Term,
     context: Context,
