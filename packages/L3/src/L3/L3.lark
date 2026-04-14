@@ -1,3 +1,7 @@
+%import common.INT
+%import common.WS
+%ignore WS
+
 program     : "(" PROGRAM "(" parameters ")" term ")"
 parameters  : IDENTIFIER*
 
@@ -20,11 +24,40 @@ let         : "(" LET "(" bindings ")" term ")"
 letrec      : "(" LETREC "(" bindings ")" term ")"
 
 bindings    : binding*
-binding     : IDENTIFIER term
+binding     : "(" IDENTIFIER term ")"
+
+reference   : IDENTIFIER
+
+abstract    : "(" LAMBDA "(" parameters ")" term ")"
+
+apply       : "(" term term* ")"
+
+immediate   : INT
+
+primitive   : "(" OPERATOR term term ")"
+
+branch      : "(" IF "(" COMPARISON term term ")" term term ")"
+
+allocate    : "(" ALLOCATE INT ")"
+
+load        : "(" LOAD IDENTIFIER INT ")"
+
+store       : "(" STORE IDENTIFIER INT term ")"
+
+begin       : "(" BEGIN term+ ")"
+
 
 PROGRAM.2   : "l3"
 LET.2       : "let"
 LETREC.2    : "letrec"
 LAMBDA.2    : "\\" | "lambda" | "λ"
+IF.2        : "if"
+ALLOCATE.2  : "allocate"
+LOAD.2      : "load"
+STORE.2     : "store"
+BEGIN.2     : "begin"
+
+OPERATOR    : "+" | "-" | "*"
+COMPARISON  : "<" | "=="
 
 IDENTIFIER  : /[a-zA-Z_][a-zA-Z0-9_]*/
