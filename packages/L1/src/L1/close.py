@@ -18,6 +18,9 @@ def close_term(
     recur = partial(close_term, lift=lift, fresh=fresh)  # noqa: F841
 
     match statement:
+        case L1.Copy():
+            pass
+
         case L1.Abstract(destination=destination, parameters=parameters, body=body, then=then):
             # 1. Close the abstract / lift to top level
             name = fresh("proc")
@@ -93,6 +96,26 @@ def close_term(
                     base=target,
                 ),
             )
+        case L1.Immediate():
+            pass
+
+        case L1.Primitive():
+            pass
+
+        case L1.Branch():
+            pass
+
+        case L1.Allocate():
+            pass
+
+        case L1.Load():
+            pass
+
+        case L1.Store():
+            pass
+
+        case L1.Halt():
+            pass
 
 
 def close_program(program: L1.Program, fresh: Callable[[str], str]) -> L0.Program:
