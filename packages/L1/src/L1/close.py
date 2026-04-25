@@ -6,8 +6,30 @@ from L0 import syntax as L0
 from . import syntax as L1
 
 
-def free_variables(term: L1.Statement) -> set[L1.Identifier]:
-    raise NotImplementedError()
+def free_variables(statement: L1.Statement) -> set[L1.Identifier]:
+    match statement:
+        case L1.Copy(destination=destination, source=source, then=then):
+            return ({source} | free_variables(then)) - {destination}
+        case L1.Abstract(destination=destination, parameters=parameters, body=body, then=then):
+            return (free_variables(body) - set(parameters) | free_variables(then)) - {destination}
+        case L1.Apply(target=target, arguments=arguments):
+            return {target} | set(arguments)
+        case L1.Immediate(destination=destination, then=then):
+            return free_variables(then) - {destination}
+        case L1.Primitive(destination=destination, left=left, right=right, then=then):
+            return ({left, right} | free_variables(then)) - {destination}
+        case L1.Branch(left=left, right=right, then=then, otherwise=otherwise):
+            return {left, right} | free_variables(then) | free_variables(otherwise)
+        case L1.Allocate(destination=destination, then=then):
+            return free_variables(then) - {destination}
+        case L1.Load(destination=destination, base=base, then=then):
+            return {base} | free_variables(then) - {destination}
+        case L1.Store(base=base, value=value, then=then):
+            return {base, value} | free_variables(then)
+        case L1.Halt(value=value):
+            return {value}
+        case _:  # pragma: no cover
+            return set()
 
 
 def close_term(
@@ -18,8 +40,12 @@ def close_term(
     recur = partial(close_term, lift=lift, fresh=fresh)  # noqa: F841
 
     match statement:
-        case L1.Copy():
-            pass
+        case L1.Copy(destination=destination, source=source, then=then):
+            return L0.Copy(
+                destination=destination,
+                source=source,
+                then=recur(then),
+            )
 
         case L1.Abstract(destination=destination, parameters=parameters, body=body, then=then):
             # 1. Close the abstract / lift to top level
@@ -30,7 +56,7 @@ def close_term(
 
             result = recur(body)
             for i, fv in enumerate(fvs):
-                body = L0.Load(
+                result = L0.Load(
                     destination=fv,
                     base=env_p,
                     index=i,
@@ -76,7 +102,7 @@ def close_term(
                     then=result,
                 )
 
-            L0.Allocate(
+            return L0.Allocate(
                 destination=env,
                 count=len(fvs),
                 then=result,
@@ -94,28 +120,64 @@ def close_term(
                 then=L0.Load(
                     destination=env,
                     base=target,
+                    index=1,
+                    then=L0.Call(
+                        target=code,
+                        arguments=[*arguments, env],
+                    ),
                 ),
             )
-        case L1.Immediate():
-            pass
 
-        case L1.Primitive():
-            pass
+        case L1.Immediate(destination=destination, value=value, then=then):
+            return L0.Immediate(
+                destination=destination,
+                value=value,
+                then=recur(then),
+            )
 
-        case L1.Branch():
-            pass
+        case L1.Primitive(destination=destination, left=left, right=right, operator=operator, then=then):
+            return L0.Primitive(
+                destination=destination,
+                left=left,
+                right=right,
+                operator=operator,
+                then=recur(then),
+            )
 
-        case L1.Allocate():
-            pass
+        case L1.Branch(left=left, right=right, operator=operator, then=then, otherwise=otherwise):
+            return L0.Branch(
+                left=left,
+                right=right,
+                operator=operator,
+                then=recur(then),
+                otherwise=recur(otherwise),
+            )
 
-        case L1.Load():
-            pass
+        case L1.Allocate(destination=destination, count=count, then=then):
+            return L0.Allocate(
+                destination=destination,
+                count=count,
+                then=recur(then),
+            )
 
-        case L1.Store():
-            pass
+        case L1.Load(destination=destination, base=base, index=index, then=then):
+            return L0.Load(
+                destination=destination,
+                base=base,
+                index=index,
+                then=recur(then),
+            )
 
-        case L1.Halt():
-            pass
+        case L1.Store(base=base, index=index, value=value, then=then):
+            return L0.Store(
+                base=base,
+                index=index,
+                value=value,
+                then=recur(then),
+            )
+
+        case L1.Halt(value=value):  # pragma: no branch
+            return L0.Halt(value=value)
 
 
 def close_program(program: L1.Program, fresh: Callable[[str], str]) -> L0.Program:
