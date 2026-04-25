@@ -182,7 +182,7 @@ def close_term(
 
 def close_program(program: L1.Program, fresh: Callable[[str], str]) -> L0.Program:
     match program:
-        case L1.Program(parameters=parameters, body=body):
+        case L1.Program(parameters=parameters, body=body):  # pragma: no branch
             procedures = list[L0.Procedure]()
 
             body = close_term(
