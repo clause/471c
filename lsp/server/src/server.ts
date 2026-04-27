@@ -14,10 +14,19 @@ import {
 	DocumentDiagnosticReportKind,
 	type DocumentDiagnosticReport
 } from 'vscode-languageserver/node';
+import { execFile } from 'node:child_process';
+import { existsSync } from 'node:fs';
+import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { promisify } from 'node:util';
 
 import {
 	TextDocument
 } from 'vscode-languageserver-textdocument';
+
+const execFileAsync = promisify(execFile);
 
 // Create a connection for the server, using Node's IPC as a transport.
 // Also include all preview / proposed LSP features.
@@ -29,9 +38,34 @@ const documents = new TextDocuments(TextDocument);
 let hasConfigurationCapability = false;
 let hasWorkspaceFolderCapability = false;
 let hasDiagnosticRelatedInformationCapability = false;
+let workspaceRootPath: string | undefined;
+
+interface L3Diagnostic {
+	stage: 'syntax' | 'semantic' | 'internal';
+	severity: 'error' | 'warning' | 'information';
+	code: string;
+	message: string;
+	line?: number;
+	column?: number;
+	end_line?: number;
+	end_column?: number;
+	snippet?: string;
+}
+
+interface L3DiagnosticsReport {
+	ok: boolean;
+	diagnostics: L3Diagnostic[];
+}
+
+interface ExecFailure {
+	code?: string | number;
+	stdout?: string;
+	stderr?: string;
+}
 
 connection.onInitialize((params: InitializeParams) => {
 	const capabilities = params.capabilities;
+	workspaceRootPath = extractWorkspaceRootPath(params);
 
 	// Does the client support the `workspace/configuration` request?
 	// If not, we fall back using global settings.
@@ -129,6 +163,7 @@ function getDocumentSettings(resource: string): Thenable<ExampleSettings> {
 // Only keep settings for open documents
 documents.onDidClose(e => {
 	documentSettings.delete(e.document.uri);
+	connection.sendDiagnostics({ uri: e.document.uri, diagnostics: [] });
 });
 
 
@@ -152,52 +187,206 @@ connection.languages.diagnostics.on(async (params) => {
 // The content of a text document has changed. This event is emitted
 // when the text document first opened or when its content has changed.
 documents.onDidChangeContent(change => {
-	validateTextDocument(change.document);
+	void publishDiagnostics(change.document);
 });
 
+documents.onDidOpen(event => {
+	void publishDiagnostics(event.document);
+});
+
+async function publishDiagnostics(textDocument: TextDocument): Promise<void> {
+	const diagnostics = await validateTextDocument(textDocument);
+	connection.sendDiagnostics({ uri: textDocument.uri, diagnostics });
+}
+
+function extractWorkspaceRootPath(params: InitializeParams): string | undefined {
+	const workspaceFolderUri = params.workspaceFolders && params.workspaceFolders.length > 0
+		? params.workspaceFolders[0].uri
+		: undefined;
+	const rootUri = workspaceFolderUri ?? params.rootUri ?? undefined;
+	if (!rootUri || !rootUri.startsWith('file://')) {
+		return undefined;
+	}
+
+	try {
+		return fileURLToPath(rootUri);
+	} catch {
+		return undefined;
+	}
+}
+
+function toFilePath(uri: string): string {
+	if (!uri.startsWith('file://')) {
+		throw new Error(`Unsupported URI scheme: ${uri}`);
+	}
+	return fileURLToPath(uri);
+}
+
+function toSeverity(severity: L3Diagnostic['severity']): DiagnosticSeverity {
+	switch (severity) {
+		case 'warning':
+			return DiagnosticSeverity.Warning;
+		case 'information':
+			return DiagnosticSeverity.Information;
+		default:
+			return DiagnosticSeverity.Error;
+	}
+}
+
+function toPosition(value: number | undefined): number {
+	if (typeof value !== 'number' || Number.isNaN(value)) {
+		return 0;
+	}
+	return Math.max(0, value - 1);
+}
+
+function toLspDiagnostic(uri: string, diagnostic: L3Diagnostic): Diagnostic {
+	const startLine = toPosition(diagnostic.line);
+	const startCharacter = toPosition(diagnostic.column);
+	const endLine = typeof diagnostic.end_line === 'number' ? toPosition(diagnostic.end_line) : startLine;
+	const endCharacter = typeof diagnostic.end_column === 'number'
+		? toPosition(diagnostic.end_column)
+		: startCharacter + 1;
+
+	const lspDiagnostic: Diagnostic = {
+		severity: toSeverity(diagnostic.severity),
+		range: {
+			start: { line: startLine, character: startCharacter },
+			end: { line: endLine, character: Math.max(endCharacter, startCharacter + 1) }
+		},
+		message: diagnostic.message,
+		source: 'l3',
+		code: diagnostic.code
+	};
+
+	if (hasDiagnosticRelatedInformationCapability && diagnostic.snippet) {
+		lspDiagnostic.relatedInformation = [
+			{
+				location: {
+					uri,
+					range: lspDiagnostic.range
+				},
+				message: `Source: ${diagnostic.snippet}`
+			}
+		];
+	}
+
+	return lspDiagnostic;
+}
+
+async function createTempL3File(text: string): Promise<{ dirPath: string; filePath: string }> {
+	const dirPath = await mkdtemp(join(tmpdir(), 'l3-lsp-'));
+	const filePath = join(dirPath, 'document.l3');
+	await writeFile(filePath, text, 'utf8');
+	return { dirPath, filePath };
+}
+
+async function runL3Diagnostics(filePath: string): Promise<L3DiagnosticsReport> {
+	const workingDirectory = workspaceRootPath ?? dirname(filePath);
+	const commandCandidates: Array<{ command: string; args: string[] }> = [];
+
+	if (workspaceRootPath) {
+		const venvL3 = join(workspaceRootPath, '.venv', 'bin', 'l3');
+		if (existsSync(venvL3)) {
+			commandCandidates.push({ command: venvL3, args: ['--diagnostics-json', filePath] });
+		}
+
+		const venvPython = join(workspaceRootPath, '.venv', 'bin', 'python');
+		if (existsSync(venvPython)) {
+			commandCandidates.push({ command: venvPython, args: ['-m', 'L3.main', '--diagnostics-json', filePath] });
+		}
+	}
+
+	commandCandidates.push({ command: 'l3', args: ['--diagnostics-json', filePath] });
+	commandCandidates.push({ command: 'python3', args: ['-m', 'L3.main', '--diagnostics-json', filePath] });
+
+	let lastError = '';
+
+	for (const candidate of commandCandidates) {
+		try {
+			const result = await execFileAsync(candidate.command, candidate.args, { cwd: workingDirectory });
+			const parsed = JSON.parse(result.stdout) as L3DiagnosticsReport;
+			if (Array.isArray(parsed.diagnostics)) {
+				return parsed;
+			}
+			lastError = `Invalid diagnostics JSON from ${candidate.command}`;
+		} catch (error) {
+			const failure = error as ExecFailure;
+			if (failure.code === 'ENOENT') {
+				continue;
+			}
+
+			const stdout = typeof failure.stdout === 'string' ? failure.stdout : '';
+			if (stdout.trim().length > 0) {
+				try {
+					const parsed = JSON.parse(stdout) as L3DiagnosticsReport;
+					if (Array.isArray(parsed.diagnostics)) {
+						return parsed;
+					}
+					lastError = `Invalid diagnostics JSON from ${candidate.command}`;
+					continue;
+				} catch {
+					lastError = stdout.trim();
+					continue;
+				}
+			}
+
+			lastError = typeof failure.stderr === 'string' && failure.stderr.trim().length > 0
+				? failure.stderr.trim()
+				: `Failed to run ${candidate.command}`;
+		}
+	}
+
+	return {
+		ok: false,
+		diagnostics: [
+			{
+				stage: 'internal',
+				severity: 'error',
+				code: 'L3_DIAGNOSTICS_UNAVAILABLE',
+				message: lastError || 'Could not execute L3 diagnostics command.'
+			}
+		]
+	};
+}
+
 async function validateTextDocument(textDocument: TextDocument): Promise<Diagnostic[]> {
-	// In this simple example we get the settings for every validate run.
+	if (!textDocument.uri.endsWith('.l3')) {
+		return [];
+	}
+
+	// In this example we get the settings for every validate run.
 	const settings = await getDocumentSettings(textDocument.uri);
 
-	// The validator creates diagnostics for all uppercase words length 2 and more
-	const text = textDocument.getText();
-	const pattern = /\b[A-Z]{2,}\b/g;
-	let m: RegExpExecArray | null;
+	let tempDirPath: string | undefined;
+	try {
+		toFilePath(textDocument.uri);
+		const temp = await createTempL3File(textDocument.getText());
+		tempDirPath = temp.dirPath;
 
-	let problems = 0;
-	const diagnostics: Diagnostic[] = [];
-	while ((m = pattern.exec(text)) && problems < settings.maxNumberOfProblems) {
-		problems++;
-		const diagnostic: Diagnostic = {
-			severity: DiagnosticSeverity.Warning,
-			range: {
-				start: textDocument.positionAt(m.index),
-				end: textDocument.positionAt(m.index + m[0].length)
-			},
-			message: `${m[0]} is all uppercase.`,
-			source: 'ex'
-		};
-		if (hasDiagnosticRelatedInformationCapability) {
-			diagnostic.relatedInformation = [
-				{
-					location: {
-						uri: textDocument.uri,
-						range: Object.assign({}, diagnostic.range)
-					},
-					message: 'Spelling matters'
+		const report = await runL3Diagnostics(temp.filePath);
+		return report.diagnostics
+			.slice(0, settings.maxNumberOfProblems)
+			.map(diagnostic => toLspDiagnostic(textDocument.uri, diagnostic));
+	} catch (error) {
+		const message = error instanceof Error ? error.message : 'Unknown diagnostics error';
+		return [
+			{
+				severity: DiagnosticSeverity.Error,
+				range: {
+					start: { line: 0, character: 0 },
+					end: { line: 0, character: 1 }
 				},
-				{
-					location: {
-						uri: textDocument.uri,
-						range: Object.assign({}, diagnostic.range)
-					},
-					message: 'Particularly for names'
-				}
-			];
+				message,
+				source: 'l3',
+				code: 'L3_DIAGNOSTICS_RUNTIME_ERROR'
+			}
+		];
+	} finally {
+		if (tempDirPath) {
+			await rm(tempDirPath, { recursive: true, force: true });
 		}
-		diagnostics.push(diagnostic);
 	}
-	return diagnostics;
 }
 
 connection.onDidChangeWatchedFiles(_change => {

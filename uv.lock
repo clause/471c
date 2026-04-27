@@ -229,6 +229,21 @@ requires-dist = [
 ]
 
 [[package]]
+name = "l4"
+version = "0.1.0"
+source = { editable = "packages/L4" }
+dependencies = [
+    { name = "pydantic" },
+    { name = "util" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "pydantic", specifier = ">=2.12.3" },
+    { name = "util", editable = "packages/util" },
+]
+
+[[package]]
 name = "lark"
 version = "1.3.1"
 source = { registry = "https://pypi.org/simple" }
