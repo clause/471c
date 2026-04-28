@@ -1,0 +1,3 @@
+L0
+
+L0 is now a procedure based language as compared to our previous expression and statement languages. Here, a program has a sequence of named procedures each containing its own parameters and a statement body. A statement can have copy, immediate, primative, branch, allocate, load, store, address, call, and hault. The main differences are that L0 organizes code into multiple named procedures whereas L1 had a single extry program with a statement body. L1 also uses abstract and apply for its functions where L0 replaces them with address and call removing a layer of abstraction. L0 also makes procedures ex plicity and predefined rather than in others where they were constructred functions at runtime. 
