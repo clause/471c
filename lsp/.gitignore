@@ -1,0 +1,17 @@
+# Node dependencies
+node_modules/
+
+# TypeScript build output
+out/
+dist/
+build/
+*.tsbuildinfo
+
+# Test and coverage output
+coverage/
+.vscode-test/
+
+# Local environment and editor files
+.env
+.env.*
+.DS_Store
