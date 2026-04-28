@@ -1,4 +1,7 @@
-# Node dependencies
+out
+node_modules
+client/server
+.vscode-test# Node dependencies
 node_modules/
 
 # TypeScript build output

@@ -7,6 +7,7 @@ from L2.optimize import optimize_program
 from L2.to_python import to_ast_program
 
 from .check import check_program
+from .diagnostics import analyze_source
 from .eliminate_letrec import eliminate_letrec_program
 from .parse import parse_program
 from .uniqify import uniqify_program
@@ -17,6 +18,12 @@ from .uniqify import uniqify_program
         help_option_names=["-h", "--help"],
         max_content_width=120,
     ),
+)
+@click.option(
+    "--diagnostics-json",
+    is_flag=True,
+    default=False,
+    help="Emit parser/checker diagnostics as JSON for editor integrations",
 )
 @click.option(
     "--check/--no-check",
@@ -43,11 +50,19 @@ from .uniqify import uniqify_program
 )
 def main(
     output: Path | None,
+    diagnostics_json: bool,
     check: bool,
     optimize: bool,
     input: Path,
 ) -> None:
-    l3 = parse_program(input.read_text())
+    source = input.read_text()
+
+    if diagnostics_json:
+        report = analyze_source(source)
+        click.echo(report.model_dump_json(indent=2))
+        raise SystemExit(0 if report.ok else 1)
+
+    l3 = parse_program(source)
 
     if check:
         check_program(l3)
