@@ -52,8 +52,7 @@ def equivalent(
 
         case Product(components=cs1), Product(components=cs2):
             return (
-                len(cs1) == len(cs2)  #
-                and all(recur(c1, c2) for c1, c2 in zip(cs1, cs2))  #
+                len(cs1) == len(cs2) and all(recur(c1, c2) for c1, c2 in zip(cs1, cs2))  #
             )
 
         case _:
@@ -106,12 +105,12 @@ def infer_term(
                     raise ValueError(f"expected {target} to be {Arrow} not {target_type}")
 
         case Immediate():
-            return Int()
+            return Int()  # passes value to the type version
 
         case Boolean():
-            return Bool()
+            return Bool()  # made it pass the value to the type
 
-        case Primitive(operator=operator, left=left, right=right):
+        case Primitive(operator=operator, left=left, right=right):  # Should only add Ints
             match operator:
                 case "+" | "-" | "*":
                     _check(left, Int())
@@ -120,7 +119,7 @@ def infer_term(
 
         case Branch(
             operator=operator, left=left, right=right, motive=motive, consequent=consequent, otherwise=otherwise
-        ):
+        ):  # branch now only covers the comparison of Int types
             match operator:
                 case "<" | "==":
                     _check(left, Int())
@@ -137,7 +136,8 @@ def infer_term(
                 raise ValueError(f"branches have different types: {consequent_type} and {otherwise_type}")
             return consequent_type
 
-        case And(left=left, right=right):
+        case And(left=left, right=right):  # used to be branch but for clarity now used to represent the and operator
+            # should only accept bools and return a bool
             _check(left, Bool())
             _check(right, Bool())
             return Bool()
