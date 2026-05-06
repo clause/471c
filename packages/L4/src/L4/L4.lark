@@ -4,6 +4,7 @@
 program     : "(" PROGRAM "(" parameters ")" term ")"
 parameters  : IDENTIFIER*
 
+
 term        : let
             | letrec
             | reference
@@ -16,8 +17,14 @@ term        : let
             | load
             | store
             | begin
-
-
+            //added terms for the lark
+            | if
+            | and
+            | sole
+            | tuple
+            | tuple_get
+            | join
+            | project
 let         : "(" LET "(" bindings ")" term ")"
 
 letrec      : "(" LETREC "(" bindings ")" term ")"
@@ -45,7 +52,7 @@ store       : "(" STORE term immediate term ")"
 
 begin       : "(" BEGIN term+ ")"
 
-PROGRAM.2   : "l3"
+PROGRAM.2   : "l4"
 LET.2       : "let"
 LETREC.2    : "letrec"
 LAMBDA.2    : "\\" | "lambda" | "λ"
@@ -60,3 +67,17 @@ COMPARATOR  : "<" | "=="
 
 IDENTIFIER  : /[a-zA-Z_][a-zA-Z0-9_]*/
 NUMBER      : /-?\d+/
+
+//the type domain annotations
+//labelled as type for comprehension purposes to prevent confusion between terms and types
+type    : int_type
+        | bool_type
+        | trivial_type
+        | arrow_type
+        | product_type
+
+int_type    : "Int"
+bool_type   : "Bool"
+trivial_type: "Trivial"
+arrow_type  : "(" "->" type type ")" //needs to take a type and a type
+product_type: "(" "Product" type* ")" // can be any number of types
