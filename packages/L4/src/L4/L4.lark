@@ -52,6 +52,21 @@ store       : "(" STORE term immediate term ")"
 
 begin       : "(" BEGIN term+ ")"
 
+//the type domain annotations
+//labelled as type for comprehension purposes to prevent confusion between terms and types
+type    : int_type
+        | bool_type
+        | trivial_type
+        | arrow_type
+        | product_type
+
+int_type    : "Int"
+bool_type   : "Bool"
+trivial_type: "Trivial"
+arrow_type  : "(" "->" type type ")" //needs to take a type and a type
+product_type: "(" "Product" type* ")" // can be any number of types
+
+
 PROGRAM.2   : "l4"
 LET.2       : "let"
 LETREC.2    : "letrec"
@@ -68,16 +83,10 @@ COMPARATOR  : "<" | "=="
 IDENTIFIER  : /[a-zA-Z_][a-zA-Z0-9_]*/
 NUMBER      : /-?\d+/
 
-//the type domain annotations
-//labelled as type for comprehension purposes to prevent confusion between terms and types
-type    : int_type
-        | bool_type
-        | trivial_type
-        | arrow_type
-        | product_type
-
-int_type    : "Int"
-bool_type   : "Bool"
-trivial_type: "Trivial"
-arrow_type  : "(" "->" type type ")" //needs to take a type and a type
-product_type: "(" "Product" type* ")" // can be any number of types
+//added terms for the lark
+AND.2       : "and"
+SOLE.2      : "sole"
+TUPLE.2     : "tuple"
+TUPLE_GET.2 : "tuple-get"
+JOIN.2      : "join"
+PROJECT.2   : "project"
