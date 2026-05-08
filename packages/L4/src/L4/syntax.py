@@ -39,7 +39,9 @@ class Trivial(BaseModel, frozen=True):
     tag: Literal["trivial"] = "trivial"
 
 
-# commented out for now as it is unneeded
+# Add a type of box, memory cell or box that goes down to memory
+# Can contain a product or a product that contains boxes if mutability is wanted there
+# type ascription, bi-directional stuff
 
 
 class Product(BaseModel, frozen=True):
