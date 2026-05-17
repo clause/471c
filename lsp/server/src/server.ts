@@ -11,8 +11,8 @@ import {
 	TextDocumentPositionParams,
 	TextDocumentSyncKind,
 	InitializeResult,
-	DocumentDiagnosticReportKind,
-	type DocumentDiagnosticReport
+	SemanticTokensBuilder,
+	SemanticTokensRequest
 } from 'vscode-languageserver/node';
 import { execFile } from 'node:child_process';
 import { existsSync } from 'node:fs';
@@ -27,6 +27,7 @@ import {
 } from 'vscode-languageserver-textdocument';
 
 const execFileAsync = promisify(execFile);
+const repositoryRootPath = dirname(dirname(dirname(__dirname)));
 
 // Create a connection for the server, using Node's IPC as a transport.
 // Also include all preview / proposed LSP features.
@@ -67,6 +68,9 @@ connection.onInitialize((params: InitializeParams) => {
 	const capabilities = params.capabilities;
 	workspaceRootPath = extractWorkspaceRootPath(params);
 
+	connection.console.log('[Initialize] Server initializing');
+	connection.console.log(`[Initialize] Client supports textDocument.semanticTokens: ${!!capabilities.textDocument?.semanticTokens}`);
+
 	// Does the client support the `workspace/configuration` request?
 	// If not, we fall back using global settings.
 	hasConfigurationCapability = !!(
@@ -88,12 +92,19 @@ connection.onInitialize((params: InitializeParams) => {
 			completionProvider: {
 				resolveProvider: true
 			},
-			diagnosticProvider: {
-				interFileDependencies: false,
-				workspaceDiagnostics: false
+			// Semantic tokens for simple keyword/type highlighting in .l4 files
+			semanticTokensProvider: {
+				legend: {
+					tokenTypes: ['keyword', 'type'],
+					tokenModifiers: []
+				},
+					full: true
 			}
 		}
 	};
+	
+	connection.console.log('[Initialize] Advertising semanticTokensProvider capability');
+
 	if (hasWorkspaceFolderCapability) {
 		result.capabilities.workspace = {
 			workspaceFolders: {
@@ -105,6 +116,7 @@ connection.onInitialize((params: InitializeParams) => {
 });
 
 connection.onInitialized(() => {
+	connection.console.log('[Initialized] Server initialized');
 	if (hasConfigurationCapability) {
 		// Register for all configuration changes.
 		connection.client.register(DidChangeConfigurationNotification.type, undefined);
@@ -139,10 +151,6 @@ connection.onDidChangeConfiguration(change => {
 			(change.settings.languageServerExample || defaultSettings)
 		);
 	}
-	// Refresh the diagnostics since the `maxNumberOfProblems` could have changed.
-	// We could optimize things here and re-fetch the setting first can compare it
-	// to the existing setting, but this is out of scope for this example.
-	connection.languages.diagnostics.refresh();
 });
 
 function getDocumentSettings(resource: string): Thenable<ExampleSettings> {
@@ -166,24 +174,6 @@ documents.onDidClose(e => {
 	connection.sendDiagnostics({ uri: e.document.uri, diagnostics: [] });
 });
 
-
-connection.languages.diagnostics.on(async (params) => {
-	const document = documents.get(params.textDocument.uri);
-	if (document !== undefined) {
-		return {
-			kind: DocumentDiagnosticReportKind.Full,
-			items: await validateTextDocument(document)
-		} satisfies DocumentDiagnosticReport;
-	} else {
-		// We don't know the document. We can either try to read it from disk
-		// or we don't report problems for it.
-		return {
-			kind: DocumentDiagnosticReportKind.Full,
-			items: []
-		} satisfies DocumentDiagnosticReport;
-	}
-});
-
 // The content of a text document has changed. This event is emitted
 // when the text document first opened or when its content has changed.
 documents.onDidChangeContent(change => {
@@ -191,6 +181,7 @@ documents.onDidChangeContent(change => {
 });
 
 documents.onDidOpen(event => {
+	connection.console.log(`[DocumentOpen] Opened: ${event.document.uri}, languageId: ${event.document.languageId}`);
 	void publishDiagnostics(event.document);
 });
 
@@ -282,16 +273,19 @@ async function createTempL3File(text: string): Promise<{ dirPath: string; filePa
 }
 
 async function runL3Diagnostics(filePath: string): Promise<L3DiagnosticsReport> {
-	const workingDirectory = workspaceRootPath ?? dirname(filePath);
+	const projectRootCandidates = [workspaceRootPath, repositoryRootPath].filter((candidate): candidate is string => {
+		return typeof candidate === 'string' && existsSync(join(candidate, 'packages', 'L3'));
+	});
+	const workingDirectory = projectRootCandidates[0] ?? workspaceRootPath ?? dirname(filePath);
 	const commandCandidates: Array<{ command: string; args: string[] }> = [];
 
-	if (workspaceRootPath) {
-		const venvL3 = join(workspaceRootPath, '.venv', 'bin', 'l3');
+	for (const rootPath of projectRootCandidates) {
+		const venvL3 = join(rootPath, '.venv', 'bin', 'l3');
 		if (existsSync(venvL3)) {
 			commandCandidates.push({ command: venvL3, args: ['--diagnostics-json', filePath] });
 		}
 
-		const venvPython = join(workspaceRootPath, '.venv', 'bin', 'python');
+		const venvPython = join(rootPath, '.venv', 'bin', 'python');
 		if (existsSync(venvPython)) {
 			commandCandidates.push({ command: venvPython, args: ['-m', 'L3.main', '--diagnostics-json', filePath] });
 		}
@@ -429,6 +423,56 @@ connection.onCompletionResolve(
 		return item;
 	}
 );
+
+	// Semantic tokens: simple keyword/type highlighting for .l4 files
+// Semantic tokens: simple keyword/type highlighting for .l4 files
+connection.onRequest(SemanticTokensRequest.type, params => {
+	const uri = params.textDocument.uri;
+	const doc = documents.get(uri);
+	connection.console.log(`[SemanticTokens] Received request for uri=${uri}`);
+	connection.console.log(`[SemanticTokens] Document exists: ${!!doc}, ends with .l4: ${uri.endsWith('.l4')}`);
+	
+	if (!uri.endsWith('.l4') || !doc) {
+		connection.console.log(`[SemanticTokens] Skipping - not .l4 or no document`);
+		return { data: [] };
+	}
+
+	// Keywords and types derived from packages/L4/src/L4/syntax.py
+	const typeKeywords = ['arrow', 'int', 'bool', 'trivial', 'product'];
+	const syntaxKeywords = [
+		'program', 'reference', 'abstraction', 'application', 'boolean', 'if', 'and', 'immediate',
+		'primitive', 'branch', 'sole', 'tuple', 'tuple_get', 'join', 'project',
+		'parameter', 'target', 'argument', 'test', 'consequent', 'otherwise', 'left', 'right',
+		'components', 'index', 'operator', 'motive', 'value', 'domain', 'codomain', 'name'
+	];
+
+	const all = [...typeKeywords, ...syntaxKeywords];
+	// Build a regex that matches whole words; escape names just in case.
+	const escaped = all.map(s => s.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&'));
+	const regex = new RegExp(`\\b(?:${escaped.join('|')})\\b`, 'g');
+
+	const builder = new SemanticTokensBuilder();
+	const lines = doc.getText().split(/\r?\n/);
+	connection.console.log(`[SemanticTokens] Processing ${lines.length} lines from document`);
+	
+	for (let line = 0; line < lines.length; line++) {
+		const text = lines[line];
+		let match: RegExpExecArray | null;
+		regex.lastIndex = 0;
+		while ((match = regex.exec(text)) !== null) {
+			const word = match[0];
+			const startChar = match.index;
+			const length = word.length;
+			const tokenType = typeKeywords.includes(word) ? 1 /* 'type' */ : 0 /* 'keyword' */;
+			connection.console.log(`[SemanticTokens] Token: "${word}" at ${line}:${startChar}, type=${tokenType}`);
+			builder.push(line, startChar, length, tokenType, 0);
+		}
+	}
+
+	const result = builder.build();
+	connection.console.log(`[SemanticTokens] Returning ${result.data.length} data elements`);
+	return result;
+});
 
 // Make the text document manager listen on the connection
 // for open, change and close text document events

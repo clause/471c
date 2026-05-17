@@ -1,5 +1,5 @@
 {
-	"name": "lsp-sample",
+	"name": "cisc471c-lsp-server",
 	"description": "A language server example",
 	"author": "Microsoft Corporation",
 	"license": "MIT",
@@ -24,7 +24,16 @@
 		"languages": [
 			{
 				"id": "lsp-471c",
-				"extensions": [".l3"]
+				"extensions": [".l3", ".l4"]
+			}
+		],
+		"semanticTokenScopes": [
+			{
+				"language": "lsp-471c",
+				"scopes": {
+					"keyword": ["keyword.control.l4"],
+					"type": ["storage.type.l4"]
+				}
 			}
 		],
 		"configuration": {

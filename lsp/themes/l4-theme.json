@@ -1,0 +1,27 @@
+{
+  "name": "L4 Semantic Theme",
+  "type": "dark",
+  "colors": {
+    "editor.background": "#1e1e1e",
+    "editor.foreground": "#d4d4d4",
+    "editorBracketMatch.background": "#0e639c",
+    "editorBracketMatch.border": "#888888"
+  },
+  "tokenColors": [
+    {
+      "name": "L4 Keyword",
+      "scope": "keyword.control.l4",
+      "settings": {
+        "foreground": "#C586C0",
+        "fontStyle": "bold"
+      }
+    },
+    {
+      "name": "L4 Type",
+      "scope": "storage.type.l4",
+      "settings": {
+        "foreground": "#4EC9B0"
+      }
+    }
+  ]
+}

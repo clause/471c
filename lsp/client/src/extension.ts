@@ -30,7 +30,10 @@ export function activate(context: ExtensionContext) {
 	const clientOptions: LanguageClientOptions = {
 		// Register the server for l0, l1, l2, l3, and l4 documents along with the unsaved buffers
 		// so language features work before first save
-		documentSelector: [{ scheme: 'file', language: 'lsp-471c' }],
+		documentSelector: [
+			{ scheme: 'file', language: 'lsp-471c' },
+			{ scheme: 'untitled', language: 'lsp-471c' }
+		],
 		synchronize: {
 			// Notify the server about file changes to '.clientrc files contained in the workspace
 			fileEvents: workspace.createFileSystemWatcher('**/.clientrc')
