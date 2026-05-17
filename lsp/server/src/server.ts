@@ -265,6 +265,52 @@ function toLspDiagnostic(uri: string, diagnostic: L3Diagnostic): Diagnostic {
 	return lspDiagnostic;
 }
 
+function toL4SyntaxDiagnostic(uri: string, text: string): Diagnostic | null {
+	const stack: Array<{ line: number; character: number }> = [];
+	const lines = text.split(/\r?\n/);
+
+	for (let lineIndex = 0; lineIndex < lines.length; lineIndex++) {
+		const line = lines[lineIndex];
+		for (let character = 0; character < line.length; character++) {
+			const ch = line[character];
+			if (ch === '(') {
+				stack.push({ line: lineIndex, character });
+			} else if (ch === ')') {
+				if (stack.length === 0) {
+					return {
+						severity: DiagnosticSeverity.Error,
+						range: {
+							start: { line: lineIndex, character },
+							end: { line: lineIndex, character: character + 1 }
+						},
+						message: 'Unmatched closing parenthesis.',
+						source: 'l4',
+						code: 'L4_SYNTAX_ERROR'
+					};
+				}
+				stack.pop();
+			}
+		}
+	}
+
+	if (stack.length === 0) {
+		return null;
+	}
+
+	const lastLineIndex = lines.length - 1;
+	const lastCharacter = lines[lastLineIndex]?.length ?? 0;
+	return {
+		severity: DiagnosticSeverity.Error,
+		range: {
+			start: { line: lastLineIndex, character: lastCharacter },
+			end: { line: lastLineIndex, character: lastCharacter + 1 }
+		},
+		message: 'Missing closing parenthesis.',
+		source: 'l4',
+		code: 'L4_SYNTAX_ERROR'
+	};
+}
+
 async function createTempL3File(text: string): Promise<{ dirPath: string; filePath: string }> {
 	const dirPath = await mkdtemp(join(tmpdir(), 'l3-lsp-'));
 	const filePath = join(dirPath, 'document.l3');
@@ -345,6 +391,11 @@ async function runL3Diagnostics(filePath: string): Promise<L3DiagnosticsReport> 
 }
 
 async function validateTextDocument(textDocument: TextDocument): Promise<Diagnostic[]> {
+	if (textDocument.uri.endsWith('.l4')) {
+		const syntaxDiagnostic = toL4SyntaxDiagnostic(textDocument.uri, textDocument.getText());
+		return syntaxDiagnostic ? [syntaxDiagnostic] : [];
+	}
+
 	if (!textDocument.uri.endsWith('.l3')) {
 		return [];
 	}
@@ -437,13 +488,11 @@ connection.onRequest(SemanticTokensRequest.type, params => {
 		return { data: [] };
 	}
 
-	// Keywords and types derived from packages/L4/src/L4/syntax.py
-	const typeKeywords = ['arrow', 'int', 'bool', 'trivial', 'product'];
+	// Keywords and types derived from packages/L4/src/L4/L4.lark
+	const typeKeywords = ['Int', 'Bool', 'Trivial', 'Product'];
 	const syntaxKeywords = [
-		'program', 'reference', 'abstraction', 'application', 'boolean', 'if', 'and', 'immediate',
-		'primitive', 'branch', 'sole', 'tuple', 'tuple_get', 'join', 'project',
-		'parameter', 'target', 'argument', 'test', 'consequent', 'otherwise', 'left', 'right',
-		'components', 'index', 'operator', 'motive', 'value', 'domain', 'codomain', 'name'
+		'l4', 'let', 'letrec', 'lambda', 'if', 'allocate', 'load', 'store', 'begin',
+		'and', 'sole', 'tuple', 'tuple-get', 'join', 'project'
 	];
 
 	const all = [...typeKeywords, ...syntaxKeywords];

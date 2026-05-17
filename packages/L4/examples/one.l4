@@ -1,5 +1,4 @@
-(lambda x : Int
-  (lambda y : Int
-    (if (< 0 (+ x y)) Int
-      1
-      0)))
+(l4 ()
+  (let ((x 1))
+    (let ((y 2))
+      (+ x y))))

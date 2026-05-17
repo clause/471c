@@ -1,1 +1,1 @@
-program arrow int bool if and primitive branch sole successor tuple tuple_get join project parameter target argument test consequent otherwise left right components index operator motive value domain codomain name
+l4 let letrec lambda if allocate load store begin and sole tuple tuple-get join project Int Bool Trivial Product

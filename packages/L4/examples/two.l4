@@ -1,4 +1,6 @@
-(the
-    (-> Int (-> Int Int))
-    (lambda (x) (lambda (y) (if (> (+ x y) 0) 1 0)))
-)
+(l4 ()
+    ((lambda (x)
+         (lambda (y)
+             (+ x y)))
+     1
+     2))

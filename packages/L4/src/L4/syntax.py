@@ -51,7 +51,8 @@ class Product(BaseModel, frozen=True):
 
 type Term = Annotated[
     # Lambda
-    Reference
+    Let
+    | Reference
     | Abstraction
     | Application
     # Bool
@@ -161,3 +162,9 @@ class Project(BaseModel, frozen=True):
     tag: Literal["project"] = "project"
     target: Term
     index: Annotated[int, Field(ge=0)]
+
+
+class Let(BaseModel, frozen=True):
+    tag: Literal["let"] = "let"
+    bindings: Sequence[tuple[Identifier, Term]]
+    body: Term
