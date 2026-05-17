@@ -8,14 +8,24 @@ import * as assert from 'assert';
 import { getDocUri, activate } from './helper';
 
 suite('Should get diagnostics', () => {
-	const docUri = getDocUri('diagnostics.txt');
+	const docUri = getDocUri('diagnostics.l3');
+	const l4DocUri = getDocUri('diagnostics.l4');
 
-	test('Diagnoses uppercase texts', async () => {
+	test('Diagnoses unbound variables', async () => {
 		await testDiagnostics(docUri, [
-			{ message: 'ANY is all uppercase.', range: toRange(0, 0, 0, 3), severity: vscode.DiagnosticSeverity.Warning, source: 'ex' },
-			{ message: 'ANY is all uppercase.', range: toRange(0, 14, 0, 17), severity: vscode.DiagnosticSeverity.Warning, source: 'ex' },
-			{ message: 'OS is all uppercase.', range: toRange(0, 18, 0, 20), severity: vscode.DiagnosticSeverity.Warning, source: 'ex' }
+			{ message: 'Unbound variable: x', range: toRange(0, 7, 0, 8), severity: vscode.DiagnosticSeverity.Error, source: 'l3' }
 		]);
+	});
+
+	test('Diagnoses malformed L4 syntax', async () => {
+		await activate(l4DocUri);
+
+		const actualDiagnostics = vscode.languages.getDiagnostics(l4DocUri);
+
+		assert.ok(actualDiagnostics.length > 0);
+		assert.equal(actualDiagnostics[0].severity, vscode.DiagnosticSeverity.Error);
+		assert.equal(actualDiagnostics[0].source, 'l4');
+		assert.equal(actualDiagnostics[0].message, 'Missing closing parenthesis.');
 	});
 });
 

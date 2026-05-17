@@ -1,4 +1,0 @@
-(the
-    (-> Int (-> Int Int))
-    (lambda (x) (lambda (y) (if (> (+ x y) 0) 1 0)))
-)
