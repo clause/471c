@@ -1,1 +1,5 @@
-(Lambda (x: Int) (lambda (y: Int) (if (> (+xy) 0) Int 1 0)))
+(lambda x : Int
+  (lambda y : Int
+    (if (< 0 (+ x y)) Int
+      1
+      0)))
