@@ -4,7 +4,8 @@ from typing import Annotated, Literal
 from pydantic import BaseModel, Field
 
 type Identifier = Annotated[str, Field(min_length=1)]
-type Label = Annotated[str, Field(min_length=1)]
+# type Label = Annotated[str, Field(min_length=1)]
+# idk why this is here so I've commented it out
 type Nat = Annotated[int, Field(ge=0)]
 
 
@@ -20,22 +21,27 @@ type Type = Annotated[
 ]
 
 
-class Arrow(BaseModel, frozen=True):
+class Arrow(BaseModel, frozen=True):  # Arrow type used to represent function types, e.g. int -> int
     tag: Literal["arrow"] = "arrow"
     domain: Type
     codomain: Type
 
 
-class Int(BaseModel, frozen=True):
+class Int(BaseModel, frozen=True):  # Int, its an integer dude. Immutable
     tag: Literal["int"] = "int"
 
 
-class Bool(BaseModel, frozen=True):
+class Bool(BaseModel, frozen=True):  # Bool, Truthiness Immutable
     tag: Literal["bool"] = "bool"
 
 
 class Trivial(BaseModel, frozen=True):
     tag: Literal["trivial"] = "trivial"
+
+
+# Add a type of box, memory cell or box that goes down to memory
+# Can contain a product or a product that contains boxes if mutability is wanted there
+# type ascription, bi-directional stuff
 
 
 class Product(BaseModel, frozen=True):
@@ -85,19 +91,19 @@ class Application(BaseModel, frozen=True):
     argument: Term
 
 
-class Boolean(BaseModel, frozen=True):
+class Boolean(BaseModel, frozen=True):  # the expression of booleans
     tag: Literal["boolean"] = "boolean"
     value: bool
 
 
-class If(BaseModel, frozen=True):
+class If(BaseModel, frozen=True):  # lacks a motive
     tag: Literal["if"] = "if"
     test: Term
     consequent: Term
     otherwise: Term
 
 
-class And(BaseModel, frozen=True):
+class And(BaseModel, frozen=True):  #
     tag: Literal["and"] = "and"
     left: Term
     right: Term
@@ -118,9 +124,9 @@ class Primitive(BaseModel, frozen=True):
 class Branch(BaseModel, frozen=True):
     tag: Literal["branch"] = "branch"
     operator: Literal["<", "=="]
-    left: Term
-    right: Term
-    motive: Type
+    left: Term  # any term currently, may want to make it unable to accept say a tuple
+    right: Term  # because of this need to check the matter of
+    motive: Type  # Expected return type of the branch
     consequent: Term
     otherwise: Term
 
@@ -129,23 +135,24 @@ class Sole(BaseModel, frozen=True):
     tag: Literal["sole"] = "sole"
 
 
-class Successor(BaseModel, frozen=True):
-    tag: Literal["successor"] = "successor"
-    target: Term
+# class Successor(BaseModel, frozen=True):
+#     tag: Literal["successor"] = "successor"
+#     target: Term
+# I have no idea what this is or what it is for but am not removing it in case its important
 
 
-class Tuple(BaseModel, frozen=True):
+class Tuple(BaseModel, frozen=True):  # tuples should be 2 types grouped together yea?
     tag: Literal["tuple"] = "tuple"
     components: Sequence[Term]
 
 
-class TupleGet(BaseModel, frozen=True):
+class TupleGet(BaseModel, frozen=True):  # grabs from the tuple returning the type(s) within?
     tag: Literal["tuple_get"] = "tuple_get"
     target: Term
     index: Nat
 
 
-class Join(BaseModel, frozen=True):
+class Join(BaseModel, frozen=True):  # Or is join the literal
     tag: Literal["join"] = "join"
     components: Sequence[Term]
 
