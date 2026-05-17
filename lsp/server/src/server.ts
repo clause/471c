@@ -265,6 +265,13 @@ function toLspDiagnostic(uri: string, diagnostic: L3Diagnostic): Diagnostic {
 	return lspDiagnostic;
 }
 
+// Allow mapping diagnostics for multiple languages (L3/L4)
+function toLspDiagnosticFor(uri: string, diagnostic: L3Diagnostic, source: string): Diagnostic {
+	const d = toLspDiagnostic(uri, diagnostic);
+	d.source = source;
+	return d;
+}
+
 function toL4SyntaxDiagnostic(uri: string, text: string): Diagnostic | null {
 	const stack: Array<{ line: number; character: number }> = [];
 	const lines = text.split(/\r?\n/);
@@ -342,9 +349,29 @@ async function runL3Diagnostics(filePath: string): Promise<L3DiagnosticsReport> 
 
 	let lastError = '';
 
+	// Build a PYTHONPATH from several candidate roots so `-m L4.main` can import local package sources.
+	const rootCandidates = new Set<string | undefined>(projectRootCandidates);
+	if (repositoryRootPath) rootCandidates.add(repositoryRootPath);
+	if (workspaceRootPath) rootCandidates.add(workspaceRootPath);
+	rootCandidates.add(process.cwd());
+
+	const pyPathEntries: string[] = [];
+	for (const root of rootCandidates) {
+		if (!root) continue;
+		pyPathEntries.push(join(root, 'packages', 'L4', 'src'));
+		pyPathEntries.push(join(root, 'packages', 'L3', 'src'));
+		pyPathEntries.push(join(root, 'packages', 'L2', 'src'));
+		pyPathEntries.push(join(root, 'packages', 'util', 'src'));
+	}
+
+	// Keep only unique and existing paths (but allow non-existing to avoid being too strict)
+	const unique = Array.from(new Set(pyPathEntries));
+	const env = { ...(process.env as NodeJS.ProcessEnv) };
+	env.PYTHONPATH = unique.join(':');
+
 	for (const candidate of commandCandidates) {
 		try {
-			const result = await execFileAsync(candidate.command, candidate.args, { cwd: workingDirectory });
+			const result = await execFileAsync(candidate.command, candidate.args, { cwd: workingDirectory, env });
 			const parsed = JSON.parse(result.stdout) as L3DiagnosticsReport;
 			if (Array.isArray(parsed.diagnostics)) {
 				return parsed;
@@ -390,10 +417,127 @@ async function runL3Diagnostics(filePath: string): Promise<L3DiagnosticsReport> 
 	};
 }
 
+async function createTempL4File(text: string): Promise<{ dirPath: string; filePath: string }> {
+	const dirPath = await mkdtemp(join(tmpdir(), 'l4-lsp-'));
+	const filePath = join(dirPath, 'document.l4');
+ 	await writeFile(filePath, text, 'utf8');
+ 	return { dirPath, filePath };
+}
+
+async function runL4Diagnostics(filePath: string): Promise<L3DiagnosticsReport> {
+	const projectRootCandidates = [workspaceRootPath, repositoryRootPath].filter((candidate): candidate is string => {
+		return typeof candidate === 'string' && existsSync(join(candidate, 'packages', 'L4'));
+	});
+	const workingDirectory = projectRootCandidates[0] ?? workspaceRootPath ?? dirname(filePath);
+	const commandCandidates: Array<{ command: string; args: string[] }> = [];
+
+	for (const rootPath of projectRootCandidates) {
+		const venvL4 = join(rootPath, '.venv', 'bin', 'l4');
+		if (existsSync(venvL4)) {
+			commandCandidates.push({ command: venvL4, args: ['--diagnostics-json', filePath] });
+		}
+
+		const venvPython = join(rootPath, '.venv', 'bin', 'python');
+		if (existsSync(venvPython)) {
+			commandCandidates.push({ command: venvPython, args: ['-m', 'L4.main', '--diagnostics-json', filePath] });
+		}
+	}
+
+	commandCandidates.push({ command: 'l4', args: ['--diagnostics-json', filePath] });
+	commandCandidates.push({ command: 'python3', args: ['-m', 'L4.main', '--diagnostics-json', filePath] });
+
+	let lastError = '';
+
+	for (const candidate of commandCandidates) {
+		try {
+			const result = await execFileAsync(candidate.command, candidate.args, { cwd: workingDirectory });
+			const parsed = JSON.parse(result.stdout) as L3DiagnosticsReport;
+			if (Array.isArray(parsed.diagnostics)) {
+				return parsed;
+			}
+			lastError = `Invalid diagnostics JSON from ${candidate.command}`;
+		} catch (error) {
+			const failure = error as ExecFailure;
+			if (failure.code === 'ENOENT') {
+				continue;
+			}
+
+			const stdout = typeof failure.stdout === 'string' ? failure.stdout : '';
+			if (stdout.trim().length > 0) {
+				try {
+					const parsed = JSON.parse(stdout) as L3DiagnosticsReport;
+					if (Array.isArray(parsed.diagnostics)) {
+						return parsed;
+					}
+					lastError = `Invalid diagnostics JSON from ${candidate.command}`;
+					continue;
+				} catch {
+					lastError = stdout.trim();
+					continue;
+				}
+			}
+
+			lastError = typeof failure.stderr === 'string' && failure.stderr.trim().length > 0
+				? failure.stderr.trim()
+				: `Failed to run ${candidate.command}`;
+		}
+	}
+
+	return {
+		ok: false,
+		diagnostics: [
+			{
+				stage: 'internal',
+				severity: 'error',
+				code: 'L4_DIAGNOSTICS_UNAVAILABLE',
+				message: lastError || 'Could not execute L4 diagnostics command.'
+			}
+		]
+	};
+}
+
 async function validateTextDocument(textDocument: TextDocument): Promise<Diagnostic[]> {
+	// Get settings for every validate run (used for both L3 and L4)
+	const settings = await getDocumentSettings(textDocument.uri);
+
 	if (textDocument.uri.endsWith('.l4')) {
-		const syntaxDiagnostic = toL4SyntaxDiagnostic(textDocument.uri, textDocument.getText());
-		return syntaxDiagnostic ? [syntaxDiagnostic] : [];
+		// Publish a quick syntax-only diagnostic immediately for fast feedback.
+		const quick = toL4SyntaxDiagnostic(textDocument.uri, textDocument.getText());
+
+		// Asynchronously run the L4 diagnostics CLI and replace diagnostics when it returns.
+		(async () => {
+			let tempDirPath: string | undefined;
+			try {
+				toFilePath(textDocument.uri);
+				const temp = await createTempL4File(textDocument.getText());
+				tempDirPath = temp.dirPath;
+
+				const report = await runL4Diagnostics(temp.filePath);
+				let diags: Diagnostic[];
+				if (!report.ok) {
+					// If CLI unavailable, prefer quick syntax diagnostic if present
+					const syntaxDiagnostic = toL4SyntaxDiagnostic(textDocument.uri, textDocument.getText());
+					diags = syntaxDiagnostic ? [syntaxDiagnostic] : report.diagnostics
+						.slice(0, settings.maxNumberOfProblems)
+						.map(diagnostic => toLspDiagnosticFor(textDocument.uri, diagnostic, 'l4'));
+				} else {
+					diags = report.diagnostics
+						.slice(0, settings.maxNumberOfProblems)
+						.map(diagnostic => toLspDiagnosticFor(textDocument.uri, diagnostic, 'l4'));
+				}
+
+				connection.sendDiagnostics({ uri: textDocument.uri, diagnostics: diags });
+			} catch (error) {
+				// If running the CLI fails, keep the quick syntax diagnostic (no-op)
+				connection.console.log(`[L4 Diagnostics] error: ${error instanceof Error ? error.message : String(error)}`);
+			} finally {
+				if (tempDirPath) {
+					await rm(tempDirPath, { recursive: true, force: true });
+				}
+			}
+		})();
+
+		return quick ? [quick] : [];
 	}
 
 	if (!textDocument.uri.endsWith('.l3')) {
@@ -401,8 +545,6 @@ async function validateTextDocument(textDocument: TextDocument): Promise<Diagnos
 	}
 
 	// In this example we get the settings for every validate run.
-	const settings = await getDocumentSettings(textDocument.uri);
-
 	let tempDirPath: string | undefined;
 	try {
 		toFilePath(textDocument.uri);
