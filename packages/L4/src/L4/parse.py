@@ -1,6 +1,6 @@
 from collections.abc import Sequence
-from typing import Literal, cast
 from pathlib import Path
+from typing import Literal, cast
 
 from lark import Lark, Token, Transformer
 from lark.visitors import v_args  # pyright: ignore[reportUnknownVariableType]
