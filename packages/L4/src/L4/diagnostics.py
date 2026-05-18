@@ -123,6 +123,10 @@ def _semantic_diagnostic(source: str, message: str) -> Diagnostic:
     if position is not None:
         line, column = position
         end_column = column + len(identifier) if identifier else None
+    else:
+        # Default to first line if identifier not found (e.g., for type mismatch errors)
+        line, column = 1, 1
+        end_column = None
 
     code = "L4_SEMANTIC_ERROR"
     if message.startswith("unknown variable"):

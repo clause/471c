@@ -96,10 +96,34 @@ class AstTransformer(Transformer[Token, Program | Term]):
     def reference(self, name: Token) -> Term:
         return Reference(name=str(name))
 
-    @v_args(inline=True)
-    def abstract(self, _lambda: Token, parameter: Token, _colon: Token, domain: Type, body: Term) -> Term:
-        # domain is now parsed from the type annotation, e.g. (λ x : Int body)
-        return Abstraction(parameter=str(parameter), domain=domain, body=body)
+    @v_args(inline=False)
+    def abstract(self, args) -> Term:
+        # Grammar: abstract : "(" LAMBDA "(" parameters ")" term ")"
+        # args will contain processed children after Lark filters anonymous tokens
+        from .syntax import Int
+
+        # Filter args into parameters and body
+        parameters = None
+        body = None
+
+        for arg in args:
+            if isinstance(arg, (list, tuple)) and parameters is None:
+                parameters = arg
+            elif arg is not None and parameters is not None:  # Body comes after parameters
+                body = arg
+
+        if parameters is None or body is None:
+            raise ValueError(f"abstract requires parameters and body, got args: {args}")
+
+        if not parameters:
+            raise ValueError("abstract requires at least one parameter")
+
+        # Build nested Abstraction for multiple parameters
+        result = body
+        for param in reversed(parameters):
+            result = Abstraction(parameter=param, domain=Int(), body=result)
+
+        return result
 
     def apply(self, args: Sequence[Term]) -> Term:
         terms = list(args)

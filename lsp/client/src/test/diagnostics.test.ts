@@ -5,7 +5,7 @@
 
 import * as vscode from 'vscode';
 import * as assert from 'assert';
-import { getDocUri, activate } from './helper';
+import { getDocUri, activate, waitForDiagnostics } from './helper';
 
 suite('Should get diagnostics', () => {
 	const docUri = getDocUri('diagnostics.l3');
@@ -32,7 +32,7 @@ suite('Should get diagnostics', () => {
 		const ifTypeDocUri = getDocUri('diagnostics-if-type-mismatch.l4');
 		await activate(ifTypeDocUri);
 
-		const actualDiagnostics = vscode.languages.getDiagnostics(ifTypeDocUri);
+		const actualDiagnostics = await waitForDiagnostics(ifTypeDocUri);
 
 		assert.ok(actualDiagnostics.length > 0, 'Expected at least one diagnostic');
 		assert.equal(actualDiagnostics[0].severity, vscode.DiagnosticSeverity.Error);
@@ -44,7 +44,7 @@ suite('Should get diagnostics', () => {
 		const primitiveTypeDocUri = getDocUri('diagnostics-primitive-type-mismatch.l4');
 		await activate(primitiveTypeDocUri);
 
-		const actualDiagnostics = vscode.languages.getDiagnostics(primitiveTypeDocUri);
+		const actualDiagnostics = await waitForDiagnostics(primitiveTypeDocUri);
 
 		assert.ok(actualDiagnostics.length > 0, 'Expected at least one diagnostic');
 		assert.equal(actualDiagnostics[0].severity, vscode.DiagnosticSeverity.Error);
