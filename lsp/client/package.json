@@ -1,10 +1,10 @@
 {
 	"name": "cisc471c-lsp-client",
 	"description": "VSCode part of a language server",
-	"author": "Microsoft Corporation",
+	"author": "cisc471c",
 	"license": "MIT",
 	"version": "0.0.1",
-	"publisher": "vscode",
+	"publisher": "cisc471c",
 	"engines": {
 		"vscode": "^1.100.0"
 	},

@@ -10,19 +10,18 @@ We use UV for dependency management, running tests, and pre-commit hooks.
 
 ## Fork and Clone the Repository
 
-1. Fork the repository: `https://github.com/clause/471c/fork`
-   
-2. Choose your personal namespace or group for the fork.
+1. Fork the repository on GitHub (use your account or organization).
 
-3. Add `clause@udel.edu` and `wahid@udel.edu` as project members with the developer role.
+2. Clone your fork locally:
 
-4. Clone your fork locally either via command line or by using your preferred IDE.
+```bash
+git clone https://github.com/<your-org>/471c.git
+cd 471c
+```
 
-5. Link [CodeCov](https://about.codecov.io/) to your GitHub account (login to codecov using your github credentials).
+3. Enable GitHub Actions for your fork if desired (Actions → Enable workflows).
 
-6. Update the badge URLs in README.md by replacing `clause` with `<NAMESPACE>` and `471c` with `<PROJECT>`.
-
-7. Enable workflows for your fork by accessing the "actions" tab.
+4. If you use CodeCov, connect it to your GitHub account separately. Update badge URLs in `README.md` as needed for your fork.
 
 ## Install project dependencies
 

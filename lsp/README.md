@@ -46,5 +46,3 @@ PYTHONPATH=packages/L4/src:packages/L3/src:packages/L2/src:packages/util/src .ve
 ```
 
 - The server publishes a quick parenthesis syntax diagnostic immediately and replaces it with richer diagnostics produced by `python -m L4.main --diagnostics-json <file>` when available.
-
-If you'd like these notes moved or expanded into a top-level developer README, tell me where and I can add it.
