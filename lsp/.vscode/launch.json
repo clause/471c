@@ -6,6 +6,9 @@
 			"type": "extensionHost",
 			"request": "launch",
 			"name": "Launch Client",
+			"env": {
+				"PYTHONPATH": "${workspaceFolder}/../packages/L4/src:${workspaceFolder}/../packages/L3/src:${workspaceFolder}/../packages/L2/src:${workspaceFolder}/../packages/util/src"
+			},
 			"runtimeExecutable": "${execPath}",
 			"args": ["--extensionDevelopmentPath=${workspaceRoot}"],
 			"outFiles": [

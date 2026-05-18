@@ -59,7 +59,8 @@ class Product(BaseModel, frozen=True):  # Tupl that holds a sequence of types
 
 type Term = Annotated[
     # Lambda
-    Reference
+    Let
+    | Reference
     | Abstraction
     | Application
     # Bool
@@ -183,3 +184,9 @@ class BoxWrite(BaseModel, frozen=True):  # Write a Term to a box or overwrite th
 class BoxRead(BaseModel, frozen=True):  # Read a value from a box
     tag: Literal["box_read"] = "box_read"
     target: Term
+
+
+class Let(BaseModel, frozen=True):
+    tag: Literal["let"] = "let"
+    bindings: Sequence[tuple[Identifier, Term]]
+    body: Term

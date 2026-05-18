@@ -11,8 +11,8 @@ import {
 	TextDocumentPositionParams,
 	TextDocumentSyncKind,
 	InitializeResult,
-	DocumentDiagnosticReportKind,
-	type DocumentDiagnosticReport
+	SemanticTokensBuilder,
+	SemanticTokensRequest
 } from 'vscode-languageserver/node';
 import { execFile } from 'node:child_process';
 import { existsSync } from 'node:fs';
@@ -27,6 +27,7 @@ import {
 } from 'vscode-languageserver-textdocument';
 
 const execFileAsync = promisify(execFile);
+const repositoryRootPath = dirname(dirname(dirname(__dirname)));
 
 // Create a connection for the server, using Node's IPC as a transport.
 // Also include all preview / proposed LSP features.
@@ -67,6 +68,9 @@ connection.onInitialize((params: InitializeParams) => {
 	const capabilities = params.capabilities;
 	workspaceRootPath = extractWorkspaceRootPath(params);
 
+	connection.console.log('[Initialize] Server initializing');
+	connection.console.log(`[Initialize] Client supports textDocument.semanticTokens: ${!!capabilities.textDocument?.semanticTokens}`);
+
 	// Does the client support the `workspace/configuration` request?
 	// If not, we fall back using global settings.
 	hasConfigurationCapability = !!(
@@ -88,12 +92,19 @@ connection.onInitialize((params: InitializeParams) => {
 			completionProvider: {
 				resolveProvider: true
 			},
-			diagnosticProvider: {
-				interFileDependencies: false,
-				workspaceDiagnostics: false
+			// Semantic tokens for simple keyword/type highlighting in .l4 files
+			semanticTokensProvider: {
+				legend: {
+					tokenTypes: ['keyword', 'type'],
+					tokenModifiers: []
+				},
+					full: true
 			}
 		}
 	};
+	
+	connection.console.log('[Initialize] Advertising semanticTokensProvider capability');
+
 	if (hasWorkspaceFolderCapability) {
 		result.capabilities.workspace = {
 			workspaceFolders: {
@@ -105,6 +116,7 @@ connection.onInitialize((params: InitializeParams) => {
 });
 
 connection.onInitialized(() => {
+	connection.console.log('[Initialized] Server initialized');
 	if (hasConfigurationCapability) {
 		// Register for all configuration changes.
 		connection.client.register(DidChangeConfigurationNotification.type, undefined);
@@ -139,10 +151,6 @@ connection.onDidChangeConfiguration(change => {
 			(change.settings.languageServerExample || defaultSettings)
 		);
 	}
-	// Refresh the diagnostics since the `maxNumberOfProblems` could have changed.
-	// We could optimize things here and re-fetch the setting first can compare it
-	// to the existing setting, but this is out of scope for this example.
-	connection.languages.diagnostics.refresh();
 });
 
 function getDocumentSettings(resource: string): Thenable<ExampleSettings> {
@@ -166,24 +174,6 @@ documents.onDidClose(e => {
 	connection.sendDiagnostics({ uri: e.document.uri, diagnostics: [] });
 });
 
-
-connection.languages.diagnostics.on(async (params) => {
-	const document = documents.get(params.textDocument.uri);
-	if (document !== undefined) {
-		return {
-			kind: DocumentDiagnosticReportKind.Full,
-			items: await validateTextDocument(document)
-		} satisfies DocumentDiagnosticReport;
-	} else {
-		// We don't know the document. We can either try to read it from disk
-		// or we don't report problems for it.
-		return {
-			kind: DocumentDiagnosticReportKind.Full,
-			items: []
-		} satisfies DocumentDiagnosticReport;
-	}
-});
-
 // The content of a text document has changed. This event is emitted
 // when the text document first opened or when its content has changed.
 documents.onDidChangeContent(change => {
@@ -191,6 +181,7 @@ documents.onDidChangeContent(change => {
 });
 
 documents.onDidOpen(event => {
+	connection.console.log(`[DocumentOpen] Opened: ${event.document.uri}, languageId: ${event.document.languageId}`);
 	void publishDiagnostics(event.document);
 });
 
@@ -274,6 +265,59 @@ function toLspDiagnostic(uri: string, diagnostic: L3Diagnostic): Diagnostic {
 	return lspDiagnostic;
 }
 
+// Allow mapping diagnostics for multiple languages (L3/L4)
+function toLspDiagnosticFor(uri: string, diagnostic: L3Diagnostic, source: string): Diagnostic {
+	const d = toLspDiagnostic(uri, diagnostic);
+	d.source = source;
+	return d;
+}
+
+function toL4SyntaxDiagnostic(uri: string, text: string): Diagnostic | null {
+	const stack: Array<{ line: number; character: number }> = [];
+	const lines = text.split(/\r?\n/);
+
+	for (let lineIndex = 0; lineIndex < lines.length; lineIndex++) {
+		const line = lines[lineIndex];
+		for (let character = 0; character < line.length; character++) {
+			const ch = line[character];
+			if (ch === '(') {
+				stack.push({ line: lineIndex, character });
+			} else if (ch === ')') {
+				if (stack.length === 0) {
+					return {
+						severity: DiagnosticSeverity.Error,
+						range: {
+							start: { line: lineIndex, character },
+							end: { line: lineIndex, character: character + 1 }
+						},
+						message: 'Unmatched closing parenthesis.',
+						source: 'l4',
+						code: 'L4_SYNTAX_ERROR'
+					};
+				}
+				stack.pop();
+			}
+		}
+	}
+
+	if (stack.length === 0) {
+		return null;
+	}
+
+	const lastLineIndex = lines.length - 1;
+	const lastCharacter = lines[lastLineIndex]?.length ?? 0;
+	return {
+		severity: DiagnosticSeverity.Error,
+		range: {
+			start: { line: lastLineIndex, character: lastCharacter },
+			end: { line: lastLineIndex, character: lastCharacter + 1 }
+		},
+		message: 'Missing closing parenthesis.',
+		source: 'l4',
+		code: 'L4_SYNTAX_ERROR'
+	};
+}
+
 async function createTempL3File(text: string): Promise<{ dirPath: string; filePath: string }> {
 	const dirPath = await mkdtemp(join(tmpdir(), 'l3-lsp-'));
 	const filePath = join(dirPath, 'document.l3');
@@ -282,16 +326,19 @@ async function createTempL3File(text: string): Promise<{ dirPath: string; filePa
 }
 
 async function runL3Diagnostics(filePath: string): Promise<L3DiagnosticsReport> {
-	const workingDirectory = workspaceRootPath ?? dirname(filePath);
+	const projectRootCandidates = [workspaceRootPath, repositoryRootPath].filter((candidate): candidate is string => {
+		return typeof candidate === 'string' && existsSync(join(candidate, 'packages', 'L3'));
+	});
+	const workingDirectory = projectRootCandidates[0] ?? workspaceRootPath ?? dirname(filePath);
 	const commandCandidates: Array<{ command: string; args: string[] }> = [];
 
-	if (workspaceRootPath) {
-		const venvL3 = join(workspaceRootPath, '.venv', 'bin', 'l3');
+	for (const rootPath of projectRootCandidates) {
+		const venvL3 = join(rootPath, '.venv', 'bin', 'l3');
 		if (existsSync(venvL3)) {
 			commandCandidates.push({ command: venvL3, args: ['--diagnostics-json', filePath] });
 		}
 
-		const venvPython = join(workspaceRootPath, '.venv', 'bin', 'python');
+		const venvPython = join(rootPath, '.venv', 'bin', 'python');
 		if (existsSync(venvPython)) {
 			commandCandidates.push({ command: venvPython, args: ['-m', 'L3.main', '--diagnostics-json', filePath] });
 		}
@@ -302,9 +349,29 @@ async function runL3Diagnostics(filePath: string): Promise<L3DiagnosticsReport> 
 
 	let lastError = '';
 
+	// Build a PYTHONPATH from several candidate roots so `-m L4.main` can import local package sources.
+	const rootCandidates = new Set<string | undefined>(projectRootCandidates);
+	if (repositoryRootPath) rootCandidates.add(repositoryRootPath);
+	if (workspaceRootPath) rootCandidates.add(workspaceRootPath);
+	rootCandidates.add(process.cwd());
+
+	const pyPathEntries: string[] = [];
+	for (const root of rootCandidates) {
+		if (!root) continue;
+		pyPathEntries.push(join(root, 'packages', 'L4', 'src'));
+		pyPathEntries.push(join(root, 'packages', 'L3', 'src'));
+		pyPathEntries.push(join(root, 'packages', 'L2', 'src'));
+		pyPathEntries.push(join(root, 'packages', 'util', 'src'));
+	}
+
+	// Keep only unique and existing paths (but allow non-existing to avoid being too strict)
+	const unique = Array.from(new Set(pyPathEntries));
+	const env = { ...(process.env as NodeJS.ProcessEnv) };
+	env.PYTHONPATH = unique.join(':');
+
 	for (const candidate of commandCandidates) {
 		try {
-			const result = await execFileAsync(candidate.command, candidate.args, { cwd: workingDirectory });
+			const result = await execFileAsync(candidate.command, candidate.args, { cwd: workingDirectory, env });
 			const parsed = JSON.parse(result.stdout) as L3DiagnosticsReport;
 			if (Array.isArray(parsed.diagnostics)) {
 				return parsed;
@@ -350,14 +417,134 @@ async function runL3Diagnostics(filePath: string): Promise<L3DiagnosticsReport> 
 	};
 }
 
+async function createTempL4File(text: string): Promise<{ dirPath: string; filePath: string }> {
+	const dirPath = await mkdtemp(join(tmpdir(), 'l4-lsp-'));
+	const filePath = join(dirPath, 'document.l4');
+ 	await writeFile(filePath, text, 'utf8');
+ 	return { dirPath, filePath };
+}
+
+async function runL4Diagnostics(filePath: string): Promise<L3DiagnosticsReport> {
+	const projectRootCandidates = [workspaceRootPath, repositoryRootPath].filter((candidate): candidate is string => {
+		return typeof candidate === 'string' && existsSync(join(candidate, 'packages', 'L4'));
+	});
+	const workingDirectory = projectRootCandidates[0] ?? workspaceRootPath ?? dirname(filePath);
+	const commandCandidates: Array<{ command: string; args: string[] }> = [];
+
+	for (const rootPath of projectRootCandidates) {
+		const venvL4 = join(rootPath, '.venv', 'bin', 'l4');
+		if (existsSync(venvL4)) {
+			commandCandidates.push({ command: venvL4, args: ['--diagnostics-json', filePath] });
+		}
+
+		const venvPython = join(rootPath, '.venv', 'bin', 'python');
+		if (existsSync(venvPython)) {
+			commandCandidates.push({ command: venvPython, args: ['-m', 'L4.main', '--diagnostics-json', filePath] });
+		}
+	}
+
+	commandCandidates.push({ command: 'l4', args: ['--diagnostics-json', filePath] });
+	commandCandidates.push({ command: 'python3', args: ['-m', 'L4.main', '--diagnostics-json', filePath] });
+
+	let lastError = '';
+
+	for (const candidate of commandCandidates) {
+		try {
+			const result = await execFileAsync(candidate.command, candidate.args, { cwd: workingDirectory });
+			const parsed = JSON.parse(result.stdout) as L3DiagnosticsReport;
+			if (Array.isArray(parsed.diagnostics)) {
+				return parsed;
+			}
+			lastError = `Invalid diagnostics JSON from ${candidate.command}`;
+		} catch (error) {
+			const failure = error as ExecFailure;
+			if (failure.code === 'ENOENT') {
+				continue;
+			}
+
+			const stdout = typeof failure.stdout === 'string' ? failure.stdout : '';
+			if (stdout.trim().length > 0) {
+				try {
+					const parsed = JSON.parse(stdout) as L3DiagnosticsReport;
+					if (Array.isArray(parsed.diagnostics)) {
+						return parsed;
+					}
+					lastError = `Invalid diagnostics JSON from ${candidate.command}`;
+					continue;
+				} catch {
+					lastError = stdout.trim();
+					continue;
+				}
+			}
+
+			lastError = typeof failure.stderr === 'string' && failure.stderr.trim().length > 0
+				? failure.stderr.trim()
+				: `Failed to run ${candidate.command}`;
+		}
+	}
+
+	return {
+		ok: false,
+		diagnostics: [
+			{
+				stage: 'internal',
+				severity: 'error',
+				code: 'L4_DIAGNOSTICS_UNAVAILABLE',
+				message: lastError || 'Could not execute L4 diagnostics command.'
+			}
+		]
+	};
+}
+
 async function validateTextDocument(textDocument: TextDocument): Promise<Diagnostic[]> {
+	// Get settings for every validate run (used for both L3 and L4)
+	const settings = await getDocumentSettings(textDocument.uri);
+
+	if (textDocument.uri.endsWith('.l4')) {
+		// Publish a quick syntax-only diagnostic immediately for fast feedback.
+		const quick = toL4SyntaxDiagnostic(textDocument.uri, textDocument.getText());
+
+		// Asynchronously run the L4 diagnostics CLI and replace diagnostics when it returns.
+		(async () => {
+			let tempDirPath: string | undefined;
+			try {
+				toFilePath(textDocument.uri);
+				const temp = await createTempL4File(textDocument.getText());
+				tempDirPath = temp.dirPath;
+
+				const report = await runL4Diagnostics(temp.filePath);
+				let diags: Diagnostic[];
+				if (!report.ok) {
+					// If CLI unavailable, prefer quick syntax diagnostic if present
+					const syntaxDiagnostic = toL4SyntaxDiagnostic(textDocument.uri, textDocument.getText());
+					diags = syntaxDiagnostic ? [syntaxDiagnostic] : report.diagnostics
+						.slice(0, settings.maxNumberOfProblems)
+						.map(diagnostic => toLspDiagnosticFor(textDocument.uri, diagnostic, 'l4'));
+				} else {
+					diags = report.diagnostics
+						.slice(0, settings.maxNumberOfProblems)
+						.map(diagnostic => toLspDiagnosticFor(textDocument.uri, diagnostic, 'l4'));
+				}
+
+				connection.sendDiagnostics({ uri: textDocument.uri, diagnostics: diags });
+			} catch (error) {
+				// If running the CLI fails, keep the quick syntax diagnostic (no-op)
+				connection.console.log(`[L4 Diagnostics] error: ${error instanceof Error ? error.message : String(error)}`);
+			} finally {
+				if (tempDirPath) {
+					await rm(tempDirPath, { recursive: true, force: true });
+				}
+			}
+		})();
+
+		return quick ? [quick] : [];
+	}
+
 	if (!textDocument.uri.endsWith('.l3')) {
 		return [];
 	}
 
 	// In this example we get the settings for every validate run.
-	const settings = await getDocumentSettings(textDocument.uri);
-
 	let tempDirPath: string | undefined;
 	try {
 		toFilePath(textDocument.uri);
@@ -429,6 +616,54 @@ connection.onCompletionResolve(
 		return item;
 	}
 );
+
+	// Semantic tokens: simple keyword/type highlighting for .l4 files
+// Semantic tokens: simple keyword/type highlighting for .l4 files
+connection.onRequest(SemanticTokensRequest.type, params => {
+	const uri = params.textDocument.uri;
+	const doc = documents.get(uri);
+	connection.console.log(`[SemanticTokens] Received request for uri=${uri}`);
+	connection.console.log(`[SemanticTokens] Document exists: ${!!doc}, ends with .l4: ${uri.endsWith('.l4')}`);
+	
+	if (!uri.endsWith('.l4') || !doc) {
+		connection.console.log(`[SemanticTokens] Skipping - not .l4 or no document`);
+		return { data: [] };
+	}
+
+	// Keywords and types derived from packages/L4/src/L4/L4.lark
+	const typeKeywords = ['Int', 'Bool', 'Trivial', 'Product'];
+	const syntaxKeywords = [
+		'l4', 'let', 'letrec', 'lambda', 'if', 'allocate', 'load', 'store', 'begin',
+		'and', 'sole', 'tuple', 'tuple-get', 'join', 'project'
+	];
+
+	const all = [...typeKeywords, ...syntaxKeywords];
+	// Build a regex that matches whole words; escape names just in case.
+	const escaped = all.map(s => s.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&'));
+	const regex = new RegExp(`\\b(?:${escaped.join('|')})\\b`, 'g');
+
+	const builder = new SemanticTokensBuilder();
+	const lines = doc.getText().split(/\r?\n/);
+	connection.console.log(`[SemanticTokens] Processing ${lines.length} lines from document`);
+	
+	for (let line = 0; line < lines.length; line++) {
+		const text = lines[line];
+		let match: RegExpExecArray | null;
+		regex.lastIndex = 0;
+		while ((match = regex.exec(text)) !== null) {
+			const word = match[0];
+			const startChar = match.index;
+			const length = word.length;
+			const tokenType = typeKeywords.includes(word) ? 1 /* 'type' */ : 0 /* 'keyword' */;
+			connection.console.log(`[SemanticTokens] Token: "${word}" at ${line}:${startChar}, type=${tokenType}`);
+			builder.push(line, startChar, length, tokenType, 0);
+		}
+	}
+
+	const result = builder.build();
+	connection.console.log(`[SemanticTokens] Returning ${result.data.length} data elements`);
+	return result;
+});
 
 // Make the text document manager listen on the connection
 // for open, change and close text document events
