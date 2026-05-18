@@ -16,7 +16,7 @@ class Program(BaseModel, frozen=True):
 
 
 type Type = Annotated[
-    Arrow | Int | Bool | Trivial | Product,
+    Arrow | Int | Bool | Trivial | Product | Box,
     Field(discriminator="tag"),
 ]
 
@@ -39,12 +39,20 @@ class Trivial(BaseModel, frozen=True):
     tag: Literal["trivial"] = "trivial"
 
 
-# Add a type of box, memory cell or box that goes down to memory
 # Can contain a product or a product that contains boxes if mutability is wanted there
 # type ascription, bi-directional stuff
 
 
-class Product(BaseModel, frozen=True):
+# Add a type of box, memory cell or box that goes down to memory
+# Needs to store and hold a conversion of a type into a memory address
+# "the transformation of placing a primitive type within an object so that the value can be used as a reference"
+# Mutable
+class Box(BaseModel, frozen=True):
+    tag: Literal["box"] = "box"
+    content: Type
+
+
+class Product(BaseModel, frozen=True):  # Tupl that holds a sequence of types
     tag: Literal["product"] = "product"
     components: Sequence[Type]
 
@@ -68,7 +76,10 @@ type Term = Annotated[
     | Tuple
     | TupleGet
     | Join
-    | Project,
+    | Project
+    # Box
+    | BoxWrite
+    | BoxRead,
     Field(discriminator="tag"),
 ]
 
@@ -161,3 +172,14 @@ class Project(BaseModel, frozen=True):
     tag: Literal["project"] = "project"
     target: Term
     index: Annotated[int, Field(ge=0)]
+
+
+class BoxWrite(BaseModel, frozen=True):  # Write a Term to a box or overwrite the current value in the box
+    tag: Literal["box_write"] = "box_write"
+    target: Term
+    value: Term
+
+
+class BoxRead(BaseModel, frozen=True):  # Read a value from a box
+    tag: Literal["box_read"] = "box_read"
+    target: Term

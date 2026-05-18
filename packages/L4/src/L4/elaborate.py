@@ -114,8 +114,27 @@ def elaborate_term(term: L4.Term, fresh: FreshFunc) -> L3.Term:
         case L4.Project(target=target, index=index):
             return recur(L4.TupleGet(target=target, index=index))
 
+        case L4.BoxWrite(target=target, value=value):
+            box_name = fresh("box")
+            return L3.Let(
+                bindings=[(box_name, recur(target))],
+                body=L3.Store(
+                    base=L3.Reference(name=box_name),
+                    index=0,
+                    value=recur(value),
+                ),
+            )
+        case L4.BoxRead(target=target):
+            box_name = fresh("box")
+            return L3.Let(
+                bindings=[(box_name, recur(target))],
+                body=L3.Load(
+                    base=L3.Reference(name=box_name),
+                    index=0,
+                ),
+            )
         case _:
-            raise ValueError(f"unknown term for L4 elaboration: {term}")
+            raise ValueError(f"Unknown term for L4 elaboration {term}")
 
 
 def elaborate_program(program: L4.Program, fresh: FreshFunc | None = None) -> L3.Program:

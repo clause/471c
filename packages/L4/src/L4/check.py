@@ -8,6 +8,9 @@ from .syntax import (
     Arrow,
     Bool,
     Boolean,
+    Box,
+    BoxRead,
+    BoxWrite,
     Branch,
     Identifier,
     If,
@@ -54,6 +57,9 @@ def equivalent(
             return (
                 len(cs1) == len(cs2) and all(recur(c1, c2) for c1, c2 in zip(cs1, cs2))  #
             )
+
+        case Box(content=c1), Box(content=c2):  # 2 boxes are the same if they share contents
+            return recur(c1, c2)
 
         case _:
             return False
@@ -171,6 +177,22 @@ def infer_term(
 
                 case target_type:
                     raise ValueError(f"expected {target} to be {Product} not {target_type}")
+
+        case BoxWrite(target=target, value=value):
+            # target has to be in box(content = T) and value has to be of type T
+            match _infer(target):
+                case Box(content=content_type):
+                    _check(value, content_type)
+                    return Trivial()  # writing is a side effect dont need to return meaningful stuff
+                case target_type:  # wrong T
+                    raise ValueError(f"expected {target} to be {Box} not {target_type}")
+
+        case BoxRead(target=target):  # return T
+            match _infer(target):  # target myst be a box with content=T
+                case Box(content=content_type):
+                    return content_type
+                case target_type:
+                    raise ValueError(f"expected {target} to be {Box} not {target_type}")
 
 
 def check_program(
