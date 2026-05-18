@@ -1,8 +1,8 @@
 [project]
 name = "471c"
 version = "0.1.0"
-description = "Add your description here"
-authors = [{ name = "James Clause", email = "clause@udel.edu" }]
+description = "Multi-level language compiler and tooling for L0..L4 (includes VS Code LSP for L3/L4)"
+authors = [{ name = "James Clause", email = "clause@udel.edu" }, { name = "John Fulkerson", email = "jtfulky@udel.edu" }]
 readme = "README.md"
 requires-python = ">=3.14"
 dependencies = []

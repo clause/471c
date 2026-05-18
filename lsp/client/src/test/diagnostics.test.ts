@@ -5,7 +5,7 @@
 
 import * as vscode from 'vscode';
 import * as assert from 'assert';
-import { getDocUri, activate } from './helper';
+import { getDocUri, activate, waitForDiagnostics } from './helper';
 
 suite('Should get diagnostics', () => {
 	const docUri = getDocUri('diagnostics.l3');
@@ -26,6 +26,30 @@ suite('Should get diagnostics', () => {
 		assert.equal(actualDiagnostics[0].severity, vscode.DiagnosticSeverity.Error);
 		assert.equal(actualDiagnostics[0].source, 'l4');
 		assert.equal(actualDiagnostics[0].message, 'Missing closing parenthesis.');
+	});
+
+	test('Diagnoses L4 type mismatch in if condition', async () => {
+		const ifTypeDocUri = getDocUri('diagnostics-if-type-mismatch.l4');
+		await activate(ifTypeDocUri);
+
+		const actualDiagnostics = await waitForDiagnostics(ifTypeDocUri);
+
+		assert.ok(actualDiagnostics.length > 0, 'Expected at least one diagnostic');
+		assert.equal(actualDiagnostics[0].severity, vscode.DiagnosticSeverity.Error);
+		assert.equal(actualDiagnostics[0].source, 'l4');
+		// Just verify a diagnostic was reported; L4 type errors are semantic diagnostics
+	});
+
+	test('Diagnoses L4 type mismatch in primitive operands', async () => {
+		const primitiveTypeDocUri = getDocUri('diagnostics-primitive-type-mismatch.l4');
+		await activate(primitiveTypeDocUri);
+
+		const actualDiagnostics = await waitForDiagnostics(primitiveTypeDocUri);
+
+		assert.ok(actualDiagnostics.length > 0, 'Expected at least one diagnostic');
+		assert.equal(actualDiagnostics[0].severity, vscode.DiagnosticSeverity.Error);
+		assert.equal(actualDiagnostics[0].source, 'l4');
+		// Just verify a diagnostic was reported; L4 type errors are semantic diagnostics
 	});
 });
 

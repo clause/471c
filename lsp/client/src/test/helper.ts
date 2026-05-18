@@ -12,11 +12,11 @@ export let documentEol: string;
 export let platformEol: string;
 
 /**
- * Activates the vscode.lsp-sample extension
+ * Activates the cisc471c.cisc471c-lsp-server extension
  */
 export async function activate(docUri: vscode.Uri) {
 	// The extensionId is `publisher.name` from package.json
-	const ext = vscode.extensions.getExtension('vscode-samples.cisc471c-lsp-server')!;
+	const ext = vscode.extensions.getExtension('cisc471c.cisc471c-lsp-server')!;
 	await ext.activate();
 	try {
 		doc = await vscode.workspace.openTextDocument(docUri);
@@ -25,6 +25,21 @@ export async function activate(docUri: vscode.Uri) {
 	} catch (e) {
 		console.error(e);
 	}
+}
+
+/**
+ * Wait for diagnostics to appear (for async operations like L4 type checking)
+ */
+export async function waitForDiagnostics(docUri: vscode.Uri, timeoutMs: number = 10000): Promise<vscode.Diagnostic[]> {
+	const startTime = Date.now();
+	while (Date.now() - startTime < timeoutMs) {
+		const diags = vscode.languages.getDiagnostics(docUri);
+		if (diags.length > 0) {
+			return diags;
+		}
+		await sleep(100);
+	}
+	return [];
 }
 
 async function sleep(ms: number) {

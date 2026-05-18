@@ -17,6 +17,7 @@ from .syntax import (
     Immediate,
     Int,
     Join,
+    Let,
     Primitive,
     Product,
     Program,
@@ -74,7 +75,7 @@ def check_term(
 
     actual = infer(term)
     if not equivalent(actual, expected):
-        raise ValueError()
+        raise ValueError(f"type mismatch: expected {expected} but got {actual}")
 
     return actual
 
@@ -193,6 +194,17 @@ def infer_term(
                     return content_type
                 case target_type:
                     raise ValueError(f"expected {target} to be {Box} not {target_type}")
+
+        case Let(bindings=bindings, body=body):
+            # Evaluate each binding in sequence with progressively extended context
+            extended_gamma = dict(gamma)
+            for identifier, value_term in bindings:
+                # Infer type of the binding value using current gamma
+                value_type = infer_term(value_term, extended_gamma)
+                # Add binding to gamma for next bindings and body
+                extended_gamma[identifier] = value_type
+            # Evaluate body with all bindings in scope
+            return infer_term(body, extended_gamma)
 
         case _:
             raise ValueError(f"cannot infer type for term: {term}")
