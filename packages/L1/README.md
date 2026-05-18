@@ -1,0 +1,3 @@
+L1
+
+Now in L1 it is a statement based language with very explicit flow control. There exists a program which has parameters and a body, and the statements are similar to L2 and L3 with a few differences. We have copy, immediate, primative, branch, abstract, apply, allocate, load, store, and hault. The differences with L1 as compared to L2 and L3 is that L2 used nested terms as expressions while now L1 replaces all of those with sequential statements. Doing this makes flow control explicit as each statement has a then continuation, except for apply and hault. L1 also adds a copy ability to move values between identifiers, and hault to end the program. L1 removes the idea of let, reference, and begin. 

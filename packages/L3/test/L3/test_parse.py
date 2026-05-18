@@ -1,4 +1,5 @@
-from L3.parse import parse_program, parse_term
+import pytest
+from L3.parse import AstTransformer, parse_program, parse_term
 from L3.syntax import (
     Abstract,
     Allocate,
@@ -14,6 +15,7 @@ from L3.syntax import (
     Reference,
     Store,
 )
+from lark import Token
 
 
 # Let
@@ -295,3 +297,10 @@ def test_parse_program_identity():
     actual = parse_program(source)
 
     assert actual == expected
+
+
+def test_begin_requires_at_least_one_term():
+    transformer = AstTransformer()
+
+    with pytest.raises(ValueError, match="begin requires at least one term"):
+        transformer.begin([Token("BEGIN", "begin")])
