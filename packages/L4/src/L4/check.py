@@ -194,6 +194,9 @@ def infer_term(
                 case target_type:
                     raise ValueError(f"expected {target} to be {Box} not {target_type}")
 
+        case _:
+            raise ValueError(f"cannot infer type for term: {term}")
+
 
 def check_program(
     program: Program,
